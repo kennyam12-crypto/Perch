@@ -1,0 +1,146 @@
+.summaryCheck,
+.summaryWin {
+  color: #4EE266;
+  font-weight: 700;
+}
+
+.summaryX {
+  color: #E34A4A;   /* red X mark */
+  font-weight: 700;
+}
+/* ============================= */
+/*  MINIMAL SCORE + WIN PULSE   */
+/* ============================= */
+
+/* 1) Hide both meters completely (score + bonus) */
+.hud .meter-track,
+.meter-track.bonus{
+  display:none !important;
+}
+
+/* 2) Default score pulse = RED (while playing) */
+#scoreCurrent{
+  color: var(--red);
+  animation: pulseRed 1.5s ease-in-out infinite;
+  display: inline-block;
+}
+
+@keyframes pulseRed{
+  50%{
+    transform: scale(1.15);
+    text-shadow: 0 0 10px rgba(255,59,59,.8);
+  }
+}
+
+/* 3) WIN STATE: score turns GREEN and pulses */
+.scorebox.win #scoreCurrent{
+  color: var(--turq);
+  animation: pulseGreen 1.5s ease-in-out infinite;
+}
+
+@keyframes pulseGreen{
+  50%{
+    transform: scale(1.15);
+    text-shadow: 0 0 12px rgba(127,232,229,.85);
+  }
+}
+
+/* 4) WIN STATE: glow / pulse ONLY on PLAY AGAIN buttons
+   (footer Play Again + summary Play Again)
+   JS will add .btn-playagain-win to those buttons on victory. */
+.btn-playagain-win{
+  border-color: var(--turq);
+  box-shadow:
+    0 0 0 1px rgba(127,232,229,.35),
+    0 0 18px rgba(127,232,229,.55);
+  animation: btnPulseGreen 1.4s ease-in-out infinite;
+}
+
+@keyframes btnPulseGreen{
+  0%,100%{
+    transform: scale(1);
+    box-shadow:
+      0 0 0 1px rgba(127,232,229,.35),
+      0 0 8px rgba(127,232,229,.3);
+  }
+  50%{
+    transform: scale(1.04);
+    box-shadow:
+      0 0 0 1px rgba(127,232,229,.6),
+      0 0 20px rgba(127,232,229,.8);
+  }
+}
+/* Let the HUD control spacing above the board */
+.board{
+  margin: 0 auto 0;
+}
+/* WINS! hint under the score */
+.wins-hint{
+  text-align:center;
+  font-weight:900;
+  font-size:14px;
+  color:var(--red);      /* same red as the score */
+  margin-top:4px;
+  opacity:1;
+  transition:opacity .8s ease;
+}
+
+.wins-hint.off{
+  opacity:0;
+}
+/* Slight horizontal spacing between PERCH title letters */
+.brand{
+  letter-spacing: 1.5px;
+}
+.pulse-green {
+  animation: pulseGreen 1s infinite;
+  color: #00cc66;
+}
+
+@keyframes pulseGreen {
+  0%   { transform: scale(1);   opacity: 1; }
+  50%  { transform: scale(1.15); opacity: 0.6; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+/* PLAY AGAIN — Static Green Call-To-Action */
+#playAgainBtn{
+  background: #1f9e66;
+  border: 1px solid #157a4f;
+  color: #ffffff;
+  font-weight: 900;
+  box-shadow: 0 0 0 0 rgba(0,0,0,0);
+}
+
+#playAgainBtn:hover{
+  filter: brightness(1.08);
+}
+
+#playAgainBtn:active{
+  transform: translateY(1px);
+}
+/* SUMMARY MODAL — Play Again (Green Match) */
+#openModePicker{
+  background: #1f9e66;
+  border: 1px solid #157a4f;
+  color: #ffffff;
+  font-weight: 900;
+  border-radius: 999px;
+  padding: 8px 14px;
+}
+
+#openModePicker:hover{
+  filter: brightness(1.08);
+}
+
+#openModePicker:active{
+  transform: translateY(1px);
+}
+#scoreCurrent {
+  margin-bottom: 18px;
+.summaryHeader {
+  text-align: center;
+}
+ /* Hide ONLY the Custom Anchors row */
+#modeCustom {
+  display: none !important;
+}

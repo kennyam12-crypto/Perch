@@ -1,0 +1,7308 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <title>Golden.</title>
+    <link rel="stylesheet" href="./style.css">
+
+  </head>
+    
+  <body>
+  <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>perch — Player Build 25w-dk (double-keystroke fix)</title>
+<style>
+:root{
+  --bg:#0b0f14; --panel:#0f2034; --ink:#f2f6fb;
+  --turq:#7fe8e5; --blue:#2d7ff9; --red:#ff3b3b;
+  --meter1:#1c3a57; --meter2:#2e5d8f; --meterH:14px;
+  --tile:50px; --gap:8px; --radius:10px;
+  --fixedBg:#0f2238; --fixedBorder:#274966; --fixedText:#d9e7f5;
+  --keyBg:#1a2e46; --keyText:#e3edf8; --keyVal:#9bb7d4;
+}
+@media (max-width:600px){
+  :root{
+    --panel:#10243c; --ink:#f6fbff;
+    --keyBg:#1b3657; --keyText:#eef6ff; --keyVal:#b7d3f1;
+    --meter1:#21486e; --meter2:#2f69a3;
+    --fixedBg:#113256; --fixedBorder:#2f5d8f; --fixedText:#e6f2ff;
+  }
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+  display:grid;place-items:center;min-height:100svh;
+  padding-top:max(env(safe-area-inset-top),0px);
+  padding-bottom:max(env(safe-area-inset-bottom),0px);
+}
+.game{width:min(94vw,720px);max-width:720px;padding:16px;margin:0}
+
+/* Title */
+.brandline{display:flex;align-items:baseline;gap:10px;justify-content:center}
+.brand{color:var(--turq);font-weight:800;font-family:ui-monospace,monospace;font-size:28px;margin:4px 0 34px;line-height:1;display:inline-flex;gap:0}
+.letter-step{display:inline-block;opacity:0;filter:blur(12px)}
+.red-e{color:var(--red)}
+.red-dot{color:var(--red);margin-left:-2px;opacity:0;filter:blur(12px)}
+
+/* HUD */
+.meter-track{position:relative;height:var(--meterH);background:#15273c;border:1px solid #203a57;border-radius:10px;overflow:hidden;box-shadow:inset 0 0 0 1px #203a57}
+.meter-track::before{content:"";position:absolute;inset:0;background:linear-gradient(0deg,var(--meter1),var(--meter2));transform:scaleX(var(--fill,0));transform-origin:left center;transition:transform .35s ease}
+.meter-label{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-weight:900;font-size:12px;background:#0d1c2e;border:1px solid #203a57;border-radius:999px;padding:2px 12px}
+.hud{width:100%;max-width:520px;margin:0 auto 10px}
+.scorebox{display:flex;align-items:center;justify-content:center;gap:6px;font-weight:800;margin-top:8px;font-size:14px}
+#scoreCurrent{color:var(--red);animation:pulse 1.5s ease-in-out infinite;display:inline-block}
+@keyframes pulse{50%{transform:scale(1.15);text-shadow:0 0 10px rgba(255,59,59,.8)}}
+
+/* Bonus */
+.meter-track.bonus{max-width:520px;margin:0 auto 8px}
+.meter-track.bonus .meter-label{font-size:12px;color:#cfe0f5;display:flex;align-items:center;gap:6px}
+.meter-track.bonus.flash::before{filter:brightness(1.25);box-shadow:inset 0 0 12px rgba(46,93,143,.35)}
+#bonusPct{font-variant-numeric:tabular-nums;font-weight:900;color:#cfe0f5}
+
+/* Tooltip */
+.tip-wrap{position:relative;display:inline-flex;align-items:center}
+.tip{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:999px;font-size:11px;font-weight:900;background:#0c2a47;border:1px solid #2a5f94;color:#9bd0ff;cursor:pointer}
+.tooltip{position:absolute;left:50%;top:calc(100% + 8px);transform:translateX(-50%);background:#0f2034;color:#d9eaff;border:1px solid #2b4f76;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 8px 20px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .15s ease;z-index:100002}
+.tip-wrap.show .tooltip{opacity:1;pointer-events:auto}
+
+/* Board */
+.board{display:grid;gap:var(--gap);margin:12px auto;max-width:440px;width:100%}
+.row{display:grid;grid-template-columns:repeat(5,1fr);gap:var(--gap)}
+.cell{position:relative;height:var(--tile);display:flex;align-items:center;justify-content:center;border-radius:var(--radius);background:#0f2034;border:2px solid #284663;font-weight:900;font-size:20px;text-transform:uppercase}
+
+/* Fixed rows (1 & 7) */
+.cell.fixed{background:var(--fixedBg);border-color:var(--fixedBorder)}
+.cell.fixed .letter{color:var(--fixedText)}
+.row[data-line="1"] .letter,.row[data-line="7"] .letter{color:var(--red)}
+
+/* Found anchors */
+.letter.anchor-found{color:var(--turq)!important;text-shadow:0 0 6px rgba(127,232,229,.35)}
+.cell.fixed .letter.anchor-found{color:var(--turq)!important}
+
+/* Effects */
+.cell.pulse-bad{animation:bad .6s ease-in-out 0s 3}
+@keyframes bad{0%,100%{box-shadow:0 0 0 0 rgba(255,59,59,0)}50%{box-shadow:0 0 0 3px rgba(255,59,59,.7)}}
+.mult-badge{position:absolute;left:6px;bottom:6px;background:#102338;border:1px solid #284663;color:#cfe0f5;font-size:9px;font-weight:900;border-radius:6px;padding:1px 4px;opacity:.9;pointer-events:none}
+
+/* Keyboard (static) */
+.kbwrap{background:var(--panel);padding:10px;border-radius:14px;width:100%;max-width:600px;margin:10px auto}
+.kb-row{display:flex;gap:6px;justify-content:center;margin:6px 0;flex-wrap:nowrap}
+.kb-bottom{display:flex;justify-content:center;gap:8px;flex-wrap:nowrap;align-items:center}
+.kb-bottom .left,.kb-bottom .right{display:flex;gap:6px}
+.kb-bottom .middle{display:flex;gap:6px;flex-wrap:nowrap;justify-content:center}
+.key{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:42px;height:46px;padding:0 8px;border:1px solid #284763;border-radius:8px;background:var(--keyBg);color:var(--keyText);font-weight:900;font-size:15px;cursor:pointer;touch-action:none;user-select:none}
+.key .val{font-size:11px;font-weight:800;color:var(--keyVal);margin-top:2px;transition:opacity .45s ease}
+.key.back,.key.enter{background:var(--blue);color:#fff;border:0}
+.key:active{transform:translateY(1px)} .key:hover{filter:brightness(1.06)}
+
+/* Footer & meta */
+.footerbar{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:10px 0 6px}
+.btn{background:#173553;color:#c9def7;border:1px solid #1e3a5a;border-radius:999px;padding:8px 12px;font-weight:800;cursor:pointer}
+.btn.ghost{background:transparent;border-color:#2a4b68;color:#a7c5e8}
+.badge{font-size:11px;background:#0e2a47;color:#89d2ff;border:1px solid #2a5f94;border-radius:999px;padding:3px 8px;margin-left:6px}
+.copyright{text-align:center;font-size:11px;color:#93a8c2;opacity:.8;margin-top:6px;display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap}
+.ver-tag{font-size:11px;color:#b6dfee;background:#0d1c2e;border:1px solid #22445f;border-radius:999px;padding:3px 8px}
+.toast{position:fixed;left:50%;bottom:64px;transform:translateX(-50%);background:#ff5252;color:#fff;padding:8px 12px;border-radius:8px;font-weight:800;opacity:0;transition:opacity .18s ease;pointer-events:none;z-index:99999}
+.toast.on{opacity:1}
+
+/* Overlays */
+.summary-backdrop,.modal-backdrop,.upsell-backdrop,.rules-backdrop,.words-backdrop,.stats-backdrop{
+  position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:100000;
+  pointer-events:none;
+}
+.summary,.modal,.upsell,.rules,.words,.stats{
+  width:min(680px,95vw);background:var(--panel);border:1px solid #264461;border-radius:14px;padding:16px;color:#eaf2fb;box-shadow:0 10px 30px rgba(0,0,0,.35)
+}
+.summary-backdrop.on,.modal-backdrop.on,.upsell-backdrop.on,.rules-backdrop.on,.words-backdrop.on,.stats-backdrop.on{pointer-events:auto}
+.summary h2{margin:0 0 10px;font-size:20px}
+.summary table{width:100%;border-collapse:collapse;margin:10px 0}
+.summary th,.summary td{padding:8px 6px;border-bottom:1px solid #223a54;text-align:left;font-size:14px}
+.summary .total{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-weight:900;font-size:16px}
+.summary .actions,.modal .actions,.upsell .actions,.rules .actions,.words .actions,.stats .actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:12px}
+
+/* Mode picker */
+.mode-grid{display:grid;grid-template-columns:1fr;gap:10px}
+.mode{border:1px solid #1e3a5a;background:#173553;color:#c9def7;border-radius:10px;padding:12px;font-weight:800;cursor:pointer;text-align:left}
+.mode small{display:block;font-weight:700;opacity:.9;margin-top:4px}
+.mode.lock{position:relative;opacity:.85}
+.mode.lock::after{content:" Premium";position:absolute;right:10px;top:10px;font-size:12px;color:#ffd36b}
+.input{background:#0b1a2b;color:#cfe0f5;border:1px solid #284663;border-radius:8px;padding:8px 10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;width:100%;max-width:120px;text-align:center}
+
+/* Words modal */
+.words .sub{font-size:13px;opacity:.9;margin-bottom:10px}
+.words .row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.words .field{display:flex;flex-direction:column;gap:6px;min-width:200px;flex:1}
+.words .field input{background:#0b1a2b;color:#cfe0f5;border:1px solid #284663;border-radius:10px;padding:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.words .hint{font-size:12px;color:#9ec2eb}
+.words .stat{font-size:12px;color:#9ec2eb;margin-top:6px}
+
+/* Centering helpers */
+.board,.kbwrap{margin-left:auto;margin-right:auto}
+.kbwrap{display:block;visibility:visible}
+
+/* Auto-shrink keyboard CSS vars (calculated in JS) */
+:root{ --keyw:42px; --keyh:46px; --keyfs:15px; --valfs:11px; }
+.key{ min-width:var(--keyw); height:var(--keyh); font-size:var(--keyfs); }
+.key .val{ font-size:var(--valfs); }
+
+/* Large screens spacing */
+@media (min-width:900px) and (min-height:740px){
+  .brandline{ margin-top:clamp(4px,1vh,20px); margin-bottom:28px; align-items:center; }
+}
+
+/* My Stats visual (tiles + sparkline) */
+.stats h3{margin:0 0 14px;font-size:20px;font-weight:900}
+.stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px}
+@media (max-width:560px){.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tile{background:#0f2238;border:1px solid #274966;border-radius:12px;padding:12px}
+.tile h4{margin:0 0 6px;font-size:12px;font-weight:800;color:#aecdff}
+.tile .val{font-weight:900;font-size:24px;line-height:1.1;color:#eaf2fb}
+.tile .muted{font-size:12px;opacity:.85;color:#cfe0f5}
+.spark-wrap{margin:10px 0 6px;background:#0b1e33;border:1px solid #22445f;border-radius:12px;padding:10px}
+.spark{position:relative;height:72px;display:flex;align-items:flex-end;gap:6px}
+.bar{flex:1 1 auto;background:#2a527a;border-radius:6px 6px 0 0;min-width:4px;height:12%}
+.bar.win{background:#1f9e66}.bar.loss{background:#cc4444}.bar.current{box-shadow:0 0 0 2px rgba(255,255,255,.22) inset}
+.spark-x{text-align:center;font-size:12px;color:#9ec2eb;margin-top:6px}
+#resetStatsBtn{background:#2a2f57;border-color:#3b4380}
+</style>
+</head>
+<body>
+<div class="game">
+  <div class="brandline">
+    <div class="brand" aria-label="perch">
+      <span class="letter-step" style="color:var(--turq);opacity:1;filter:blur(0)">p</span>
+      <span class="letter-step red-e">e</span>
+      <span class="letter-step" style="color:var(--turq);opacity:1;filter:blur(0)">r</span>
+      <span class="letter-step" style="color:var(--turq);opacity:1;filter:blur(0)">c</span>
+      <span class="letter-step" style="color:var(--turq);opacity:1;filter:blur(0)">h</span>
+      <span class="letter-step red-dot">.</span>
+    </div>
+  </div>
+
+  <div class="hud">
+    <div class="meter-track" id="scoreBar"><span class="meter-label">SCORE</span></div>
+<div class="scorebox">
+  <span id="scoreCurrent">225</span>
+</div>
+
+  <div class="meter-track bonus" id="bonusBar">
+    <span class="meter-label">
+      BONUS&nbsp;+25&nbsp;<span id="bonusPct">0&nbsp;/&nbsp;10</span>
+      <span class="tip-wrap"><span class="tip">i</span><span class="tooltip">Reveal all unique letters from the anchor rows to fill to 10/10 and earn +25.</span></span>
+    </span>
+  </div>
+
+  <div class="board" id="board">
+    <div class="row" data-line="1" id="row1">
+      <div class="cell fixed"><span class="letter">C</span></div>
+      <div class="cell fixed"><span class="letter">R</span></div>
+      <div class="cell fixed"><span class="letter">A</span></div>
+      <div class="cell fixed"><span class="letter">N</span></div>
+      <div class="cell fixed"><span class="letter">E</span></div>
+    </div>
+    <div class="row" data-line="2" id="row2">
+      <div class="cell play"><span class="letter"></span><span class="mult-badge">×1</span></div>
+      <div class="cell play"><span class="letter"></span></div>
+      <div class="cell play"><span class="letter"></span></div>
+      <div class="cell play"><span class="letter"></span></div>
+      <div class="cell play"><span class="letter"></span></div>
+    </div>
+    <div class="row" data-line="3" id="row3" style="display:none">
+      <div class="cell play"><span class="letter"></span><span class="mult-badge">×2</span></div>
+      <div class="cell play"><span class="letter"></span></div>
+      <div class="cell play"><span class="letter"></span></div>
+      <div class="cell play"><span class="letter"></span></div>
+      <div class="cell play"><span class="letter"></span></div>
+    </div>
+    <div class="row" data-line="4" id="row4" style="display:none">
+      <div class="cell play"><span class="letter"></span><span class="mult-badge">×3</span></div>
+      <div class="cell play"><span class="letter"></span></div>
+      <div class="cell play"><span class="letter"></span></div>
+      <div class="cell play"><span class="letter"></span></div>
+      <div class="cell play"><span class="letter"></span></div>
+    </div>
+    <div class="row" data-line="5" id="row5" style="display:none">
+      <div class="cell play"><span class="letter"></span><span class="mult-badge">×5</span></div>
+      <div class="cell play"><span class="letter"></span></div>
+      <div class="cell play"><span class="letter"></span></div>
+      <div class="cell play"><span class="letter"></span></div>
+      <div class="cell play"><span class="letter"></span></div>
+    </div>
+    <div class="row" data-line="6" id="row6" style="display:none">
+      <div class="cell play"><span class="letter"></span><span class="mult-badge">×10</span></div>
+      <div class="cell play"><span class="letter"></span></div>
+      <div class="cell play"><span class="letter"></span></div>
+      <div class="cell play"><span class="letter"></span></div>
+      <div class="cell play"><span class="letter"></span></div>
+    </div>
+    <div class="row" data-line="7" id="row7">
+      <div class="cell fixed"><span class="letter">P</span></div>
+      <div class="cell fixed"><span class="letter">L</span></div>
+      <div class="cell fixed"><span class="letter">U</span></div>
+      <div class="cell fixed"><span class="letter">M</span></div>
+      <div class="cell fixed"><span class="letter">B</span></div>
+    </div>
+  </div>
+
+  <!-- STATIC KEYBOARD -->
+  <div class="kbwrap" id="kb">
+    <div class="kb-row" id="kb1">
+      <button class="key" data-key="Q" type="button">Q<span class="val"></span></button>
+      <button class="key" data-key="W" type="button">W<span class="val"></span></button>
+      <button class="key" data-key="E" type="button">E<span class="val"></span></button>
+      <button class="key" data-key="R" type="button">R<span class="val"></span></button>
+      <button class="key" data-key="T" type="button">T<span class="val"></span></button>
+      <button class="key" data-key="Y" type="button">Y<span class="val"></span></button>
+      <button class="key" data-key="U" type="button">U<span class="val"></span></button>
+      <button class="key" data-key="I" type="button">I<span class="val"></span></button>
+      <button class="key" data-key="O" type="button">O<span class="val"></span></button>
+      <button class="key" data-key="P" type="button">P<span class="val"></span></button>
+    </div>
+    <div class="kb-row" id="kb2">
+      <button class="key" data-key="A" type="button">A<span class="val"></span></button>
+      <button class="key" data-key="S" type="button">S<span class="val"></span></button>
+      <button class="key" data-key="D" type="button">D<span class="val"></span></button>
+      <button class="key" data-key="F" type="button">F<span class="val"></span></button>
+      <button class="key" data-key="G" type="button">G<span class="val"></span></button>
+      <button class="key" data-key="H" type="button">H<span class="val"></span></button>
+      <button class="key" data-key="J" type="button">J<span class="val"></span></button>
+      <button class="key" data-key="K" type="button">K<span class="val"></span></button>
+      <button class="key" data-key="L" type="button">L<span class="val"></span></button>
+    </div>
+    <div class="kb-bottom">
+      <div class="left"><button class="key back" data-key="BACK" type="button">⌫<span class="val">BACK</span></button></div>
+      <div class="middle" id="kb3">
+        <button class="key" data-key="Z" type="button">Z<span class="val"></span></button>
+        <button class="key" data-key="X" type="button">X<span class="val"></span></button>
+        <button class="key" data-key="C" type="button">C<span class="val"></span></button>
+        <button class="key" data-key="V" type="button">V<span class="val"></span></button>
+        <button class="key" data-key="B" type="button">B<span class="val"></span></button>
+        <button class="key" data-key="N" type="button">N<span class="val"></span></button>
+        <button class="key" data-key="M" type="button">M<span class="val"></span></button>
+      </div>
+      <div class="right"><button class="key enter" data-key="ENTER" type="button">↵<span class="val">ENTER</span></button></div>
+    </div>
+  </div>
+
+  <div class="footerbar">
+    <button class="btn" id="rulesBtn" type="button">Rules</button>
+    <button class="btn" id="statsBtn" type="button">My Stats</button>
+    <button class="btn" id="playAgainBtn" type="button" onclick="showMode()">Play Again</button>
+ 
+    
+    <button class="btn ghost" id="premiumBtn" type="button">Premium<span id="premBadge" class="badge" style="display:none">Active</span></button>
+  </div>
+
+  <div class="copyright">
+    <span>© 2025 Kenneth Murray — Perch Puzzle — All Rights Reserved</span>
+    <span class="ver-tag" id="editTag">Perch v2.9c</span>
+  </div>
+
+  <div id="toast" class="toast"></div>
+</div>
+
+<!-- Summary -->
+<div class="summary-backdrop" id="summaryBackdrop" aria-modal="true" role="dialog">
+  <div class="summary" role="document">
+    <h2 id="summaryTitle">Game Summary</h2>
+    <div id="summaryBody"></div>
+    <div class="actions">
+      <button class="tag" id="openModePicker" onclick="showMode()">Play Again</button>
+      <button class="tag" id="shareBtn">Share Text</button>
+      <button class="tag" id="closeSummary">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- My Stats (shell only) -->
+<div class="stats-backdrop" id="statsBackdrop" aria-modal="true" role="dialog">
+  <div class="stats" role="document"></div>
+</div>
+
+<!-- Mode Picker -->
+<div class="modal-backdrop" id="modeBackdrop" aria-modal="true" role="dialog">
+  <div class="modal">
+    <h3>Choose Your Mode</h3>
+    <div class="mode-grid">
+      <button class="mode" id="modeToday">Today’s Challenge
+        <small>Daily puzzle resets at 12:00 AM ET. </small>
+      </button>
+      <button class="mode lock" id="modePlus">Perch Plus — New Word Anchors
+        <small>Free Preview Available / PREMIUM features COMING SOON! · Daily Limits Apply</small>
+      </button>
+      <button class="mode lock" id="modeCustom" style="display:none !important;">Custom Anchors — Build Your Own
+        <small>Premium feature · Free preview (limited)</small>
+      </button>
+    </div>
+    <div id="customInputs" class="row" style="display:none; margin-top:10px">
+      <input id="topWord" class="input" maxlength="5" placeholder="TOP" />
+      <span>•</span>
+      <input id="botWord" class="input" maxlength="5" placeholder="BOTTOM" />
+    </div>
+    <div class="actions">
+      <button class="btn" id="modeCancel">Cancel</button>
+      <button class="btn" id="modeApply">Apply</button>
+    </div>
+  </div>
+</div>
+
+<!-- Premium Upsell -->
+<div class="upsell-backdrop" id="upsellBackdrop" aria-modal="true" role="dialog">
+  <div class="upsell">
+    <h3>Unlock Perch Premium <span class="price">$3 / month</span></h3>
+    <p>Get more ways to play and share:</p>
+    <ul>
+      <li>Perch Plus — New Word Anchors</li>
+      <li>✏️ Custom Anchors — Build Your Own</li>
+      <li>Advanced stats &amp; sharing formats (coming soon)</li>
+    </ul>
+    <div class="actions">
+      <a id="upsellCheckout" class="btn a btnlink" href="#" target="_blank" rel="noopener">Go to Checkout</a>
+      <button class="btn" id="upsellUnlock">Simulate Unlock (Demo)</button>
+      <button class="btn" id="upsellCancel">Not Now</button>
+    </div>
+  </div>
+</div>
+
+<!-- Rules -->
+<div class="rules-backdrop" id="rulesBackdrop" aria-modal="true" role="dialog">
+  <div class="rules" role="document" tabindex="-1">
+    <h3>How to Play</h3>
+    <p style="margin:.5em 0 1em;font-weight:800">
+      <span style="display:inline-block;padding:.3em .6em;border:1px solid #2b4f76;border-radius:999px;background:#0d1c2e;">
+        Objective: <span style="color:#ffcc66">Reach 225 points</span> .
+      </span>
+    </p>
+    <ol>
+      <li><b>Anchor rows:</b> Lines <b>1</b> and <b>7</b> are fixed anchor words (not scored). Build legal 5-letter words on lines <b>2–6. (Lines 3-6 will appear as you progress.)</b></li>
+      <li><b>Isograms only:</b> 5-letter words with no repeating letters.</li>
+      <li><b>No column duplication:</b> The same letter cannot repeat in a column across rows.</li>
+      <li><b>Row scoring:</b> Sum of letter values × row multiplier (rows 2–6 = <b>1×,2×,3×,5×,10×</b>).</li>
+     <li><b>Bonus (+10):</b> Successfully use 5 of the 10 red anchor letters to create your first word on line 2.</li> 
+      <li><b>Bonus (+25):</b> Reveal all unique letters present in the two anchor words.</li>
+      <li><b>Final score:</b> Unused letters’ values are subtracted from your total.</li>
+      <li><b>Mastery Goal:</b> After penalties, if your final score is <b>≥ 225</b>, you win!</li>
+    </ol>
+    <div class="actions">
+      <button class="btn" id="rulesCloseBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Manage Words -->
+<div class="words-backdrop" id="wordsBackdrop" aria-modal="true" role="dialog">
+  <div class="words" role="document">
+    <h3>Manage Words</h3>
+    <div class="sub">
+      <b>Add A Word</b><br/>
+      Enter a single <b>5-letter isogram</b> (A–Z, no repeating letters). On add, it’s saved to your device and instantly merged with Perch’s list for validation, anchors, and Custom Mode.
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="singleWord" class="hint">Example: CHAIR, GLADE, WOVEN</label>
+        <input id="singleWord" maxlength="5" placeholder="TYPE WORD" autocomplete="off" inputmode="latin" />
+        <div class="stat" id="wordsStat">Total in use: 0</div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="addOneBtn" type="button">Add A Word</button>
+        <button class="btn" id="wordsClose" type="button">Close</button>
+      </div>
+    </div>
+
+    <div id="devTools" style="display:none;margin-top:10px">
+      <hr style="border:0;border-top:1px solid #22445f;opacity:.5;margin:8px 0">
+      <div class="row" style="gap:8px">
+        <button class="btn" id="exportBtn" type="button">Export My Added Words</button>
+        <button class="btn" id="importBtn" type="button">Import Words</button>
+        <button class="btn" id="bakeBtn" type="button">Download Baked Code</button>
+      </div>
+      <div id="importArea" style="display:none;margin-top:8px">
+        <p class="small" style="opacity:.8">Paste words (one per line). Non-isograms and duplicates are ignored.</p>
+        <textarea id="importText" placeholder="CHAIR&#10;WOVEN&#10;GLADE" style="width:100%;min-height:120px;resize:vertical;background:#0b1a2b;color:#cfe0f5;border:1px solid #284663;border-radius:10px;padding:10px;font-weight:700"></textarea>
+        <div class="tools" style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn" id="importApply">Merge</button>
+          <button class="btn" id="importCancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =================== CORE SETTINGS =================== */
+const VERSION_TAG = "Perch CANONICAL — Dec 31 2025";
+const TARGET=225;
+let TOP_ANCHOR='CRANE', BOTTOM_ANCHOR='PLUMB';
+const ROW_MULT={2:1,3:2,4:3,5:5,6:10};
+const LETTER_PTS={A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:1,M:3,N:1,O:1,P:3,Q:10,R:1,S:1,T:1,U:1,V:4,W:4,X:8,Y:4,Z:10};
+
+const premKey='perch.premium';
+let isPremiumUser = localStorage.getItem(premKey)==='1';
+const PREVIEW_KEY='perch.preview_plays';
+const PREVIEW_LIMIT=5;
+
+const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+function toast(msg,ms=1600){const t=$("#toast");t.textContent=msg;t.classList.add('on');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),ms);}
+
+/* One-time NY-day toast */
+const DAILY_TOAST_KEY_PREFIX = 'perch.toast.dailyNote.';
+function nycDateKey(d = new Date()){
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone:'America/New_York', year:'numeric', month:'2-digit', day:'2-digit' });
+  return fmt.format(d);
+}
+function toastOncePerNYDay(msg){
+  const key = DAILY_TOAST_KEY_PREFIX + nycDateKey(new Date());
+  if (localStorage.getItem(key) !== '1'){ toast(msg, 2200); localStorage.setItem(key, '1'); }
+}
+function nycPrettyDate(){
+  const [y,m,d] = nycDateKey(new Date()).split('-');
+  const months = ['Jan.','Feb.','Mar.','Apr.','May','Jun.','Jul.',
+                  'Aug.','Sep.','Oct.','Nov.','Dec.'];
+  return `${months[parseInt(m,10)-1]} ${parseInt(d,10)}, ${y}`;
+}
+
+/* iOS-safe tap helper (used for non-keyboard buttons) */
+function bindTap(el, handler){
+  if (!el) return;
+  ['click','touchstart','pointerup'].forEach(ev=>{
+    el.addEventListener(ev, e=>{ e.preventDefault(); handler(e); }, {passive:false});
+  });
+}
+
+/* Overlay helpers + mutation assist */
+function showOverlay(sel){ const el = $(sel); if(!el) return; el.style.display='flex'; el.classList.add('on'); }
+function hideOverlay(sel){ const el = $(sel); if(!el) return; el.style.display='none'; el.classList.remove('on'); }
+function killAllOverlays(){ ['#summaryBackdrop','#modeBackdrop','#rulesBackdrop','#statsBackdrop','#wordsBackdrop','#upsellBackdrop'].forEach(hideOverlay); }
+window.showMode = function(){ killAllOverlays(); showOverlay('#modeBackdrop'); };
+const _mo = new MutationObserver(() => {
+  ['#summaryBackdrop','#modeBackdrop','#statsBackdrop','#wordsBackdrop','#upsellBackdrop','#rulesBackdrop'].forEach(sel=>{
+    const el = $(sel); if(!el) return;
+    const isFlex = getComputedStyle(el).display === 'flex';
+    el.classList.toggle('on', isFlex);
+  });
+});
+_mo.observe(document.documentElement, {subtree:true, attributes:true, attributeFilter:['style','class']});
+
+/* =================== TITLE / CENTER / KEYBOARD SIZE =================== */
+let _seqAnims=[];
+function spinEStart(){
+  const letters = document.querySelectorAll('.brand .letter-step');
+  if(!letters || letters.length < 6) return;
+  const [p,e,r,c,h,dot] = letters;
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduce){ [p,e,r,c,h,dot].forEach(el=>{ el.style.opacity='1'; el.style.filter='blur(0)'; }); return; }
+  [p,r,c,h].forEach(el=>{ el.style.opacity='1'; el.style.filter='blur(0)'; });
+  e.style.opacity='0'; e.style.filter='blur(12px)'; dot.style.opacity='0'; dot.style.filter='blur(12px)';
+  _seqAnims.forEach(a=>{try{a.cancel();}catch{}});
+  _seqAnims=[];
+  const keyframes = [
+    { filter:'blur(12px)', opacity:0,   offset:0},
+    { filter:'blur(5px)',  opacity:.6,  offset:.33},
+    { filter:'blur(2px)',  opacity:.85, offset:.70},
+    { filter:'blur(0px)',  opacity:1,   offset:1}
+  ];
+  const per=15000;
+  const animE = e.animate(keyframes, { duration: per, fill:'forwards' });
+  _seqAnims.push(animE);
+  animE.onfinish = () => { const animDot = dot.animate(keyframes, { duration: per, fill:'forwards' }); _seqAnims.push(animDot); };
+}
+
+/* CenterLock */
+(function CenterLock(){
+  const BASE_TOP = 16, BASE_BOT = 16;
+  const raf = fn => (window.requestAnimationFrame ? requestAnimationFrame(fn) : setTimeout(fn,0));
+  function vhNow(){ return (window.visualViewport && window.visualViewport.height) || window.innerHeight || document.documentElement.clientHeight || 0; }
+  function centerLock(){
+    const root = document.querySelector('.game'); if(!root) return;
+    root.style.paddingTop = BASE_TOP+'px'; root.style.paddingBottom = BASE_BOT+'px';
+    raf(()=>{
+      const viewportH = Math.max(0, Math.floor(vhNow()));
+      const contentH  = Math.ceil(root.offsetHeight);
+      if (!viewportH || contentH >= viewportH){ root.style.paddingTop=BASE_TOP+'px'; root.style.paddingBottom=BASE_BOT+'px'; return; }
+      const gap = Math.floor((viewportH - contentH)/2);
+      root.style.paddingTop    = (BASE_TOP + Math.max(0,gap))+'px';
+      root.style.paddingBottom = (BASE_BOT + Math.max(0,gap))+'px';
+    });
+  }
+  ['load','resize','orientationchange'].forEach(ev=>window.addEventListener(ev,centerLock,{passive:true}));
+  if (window.visualViewport){
+    visualViewport.addEventListener('resize', centerLock, {passive:true});
+    visualViewport.addEventListener('scroll', centerLock, {passive:true});
+  }
+  const mo = new MutationObserver(()=>{centerLock(); sizeKeyboard();});
+  ['#board','.kbwrap','#summaryBackdrop','.hud','.brandline'].forEach(sel=>{ const n=document.querySelector(sel); if(n) mo.observe(n,{attributes:true,childList:true,subtree:true,attributeFilter:['style','class']}); });
+  window.addEventListener('DOMContentLoaded', ()=>{ centerLock(); sizeKeyboard(); }, {once:true});
+  setTimeout(()=>{centerLock(); sizeKeyboard();},50);
+  setTimeout(()=>{centerLock(); sizeKeyboard();},250);
+})();
+
+/* Keyboard autosize */
+function sizeKeyboard(){
+  const wrap = document.getElementById('kb');
+  if(!wrap) return;
+  const style = getComputedStyle(wrap);
+  const padH = parseFloat(style.paddingLeft)+parseFloat(style.paddingRight);
+  const gap = 6, avail = wrap.clientWidth - padH, maxRowKeys = 10, totalGaps = (maxRowKeys-1) * gap;
+  let keyw = Math.floor((avail - totalGaps) / maxRowKeys);
+  keyw = Math.max(28, Math.min(46, keyw));
+  const keyh = Math.round(keyw*1.1);
+  const keyfs = Math.max(12, Math.min(16, Math.floor(keyw*0.36)));
+  const valfs = Math.max(10, Math.min(13, Math.floor(keyw*0.28)));
+  document.documentElement.style.setProperty('--keyw', keyw+'px');
+  document.documentElement.style.setProperty('--keyh', keyh+'px');
+  document.documentElement.style.setProperty('--keyfs', keyfs+'px');
+  document.documentElement.style.setProperty('--valfs', valfs+'px');
+}
+window.addEventListener('resize', sizeKeyboard, {passive:true});
+
+/* =================== GAME STATE =================== */
+const G = { total:0, bonus:0, bonusMax:35, done:false, line2BonusGiven:false };
+let bonusEarned=0; const playedRows=[]; const foundTop=new Set(), foundBot=new Set();
+let currentLine=2;
+
+function lettersOfRow(n){return $$( `.row[data-line="${n}"] .letter`).map(s=>s.textContent.toUpperCase()||'');}
+function setRow(n,word){const r=$(`.row[data-line="${n}"]`); if(!r) return; [...r.children].forEach((c,i)=>{const t=c.querySelector('.letter'); if(t) t.textContent=(word[i]||'').toUpperCase();});}
+function showRow(n){const r=$(`.row[data-line="${n}"]`); if(r) r.style.display='';}
+function updScore(){
+  // Ascending display (0 → 225). Hide until first points earned.
+  const earned = Math.min(TARGET, Math.max(0, G.total));
+  const pct = earned / TARGET;
+
+  const bar = document.getElementById("scoreBar");
+  if (bar) bar.style.setProperty('--fill', pct);
+
+  const el = document.getElementById("scoreCurrent");
+  if (el) el.textContent = earned > 0 ? String(earned) : "";
+}
+function updBonus(){ const ratio=(G.bonus>=G.bonusMax)?1:Math.min(1,G.bonus/G.bonusMax); const bar=$("#bonusBar"); bar.style.setProperty('--fill',ratio); $("#bonusPct").innerHTML=`${Math.min(G.bonus,G.bonusMax)}&nbsp;/&nbsp;${G.bonusMax}`; bar.classList.remove('flash'); void bar.offsetWidth; bar.classList.add('flash'); }
+function applyAnchorProgress(arr){
+  let gained=0; const uniq=[...new Set(arr)];
+  const topSet=new Set(TOP_ANCHOR.split('')), botSet=new Set(BOTTOM_ANCHOR.split(''));
+  uniq.forEach(ch=>{
+    if(topSet.has(ch) && !foundTop.has(ch)){ foundTop.add(ch); gained++; $$('#row1 .letter').forEach(el=>{if(el.textContent.toUpperCase()===ch) el.classList.add('anchor-found');}); }
+    if(botSet.has(ch) && !foundBot.has(ch)){ foundBot.add(ch); gained++; $$('#row7 .letter').forEach(el=>{if(el.textContent.toUpperCase()===ch) el.classList.add('anchor-found');}); }
+  });
+  if(gained>0) G.bonus=Math.min(G.bonus+gained,G.bonusMax);
+// ===== LINE 2 BONUS: +10 =====
+if (
+  currentLine === 2 &&
+  !G._line2BonusPaid
+) {
+  const used = lettersOfRow(2);               // letters player used
+  const anchors = new Set([...TOP_ANCHOR, ...BOTTOM_ANCHOR]);
+
+  const valid =
+    used.length === 5 &&
+    used.every(l => anchors.has(l));
+
+  if (valid) {
+    G.total += 10;
+    bonusEarned += 10;
+    G._line2BonusPaid = true;
+    toast('+10 BONUS!');
+    updScore();
+  }
+}
+// ============================
+  if(G.bonus>=G.bonusMax && !G._bonusPaid){ G.total+=25; bonusEarned+=25; G._bonusPaid=true; toast('+25 Bonus!'); updScore(); G.bonus=G.bonusMax;}
+  updBonus();
+}
+
+/* Stats store */
+const ST_KEY='perch.stats';
+function readStats(){ try{ return JSON.parse(localStorage.getItem(ST_KEY)||'{}'); }catch{ return {}; } }
+function writeStats(obj){ localStorage.setItem(ST_KEY, JSON.stringify(obj)); }
+
+/* =================== MODES / OVERLAYS =================== */
+function showMode(){ window.showMode(); }
+
+(function init(){
+  setPremium(isPremiumUser);
+  updScore(); updBonus(); spinEStart(); sizeKeyboard();
+
+  /* populate key point values */
+  $$('.key .val').forEach(v=>{
+    const key = v.parentElement?.dataset?.key || '';
+    if (/^[A-Z]$/.test(key)) v.textContent = LETTER_PTS[key] ?? '';
+  });
+
+  /* KEYBOARD — single handler to prevent double letters */
+  const kb = document.getElementById('kb');
+  function kbTap(e){
+    const btn = e.target.closest('.key'); if(!btn) return;
+    e.preventDefault();
+    const key = (btn.dataset.key||'').toUpperCase();
+    if(key==='ENTER') submitLine();
+    else if(key==='BACK') back();
+    else if(/^[A-Z]$/.test(key)) push(key);
+  }
+  // Remove any accidental prior listeners by replacing the node, then bind only pointerup
+  (function hardenKeyboard(){
+    const fresh = kb.cloneNode(true);
+    kb.replaceWith(fresh);
+    fresh.addEventListener('pointerup', kbTap, {passive:false});
+  })();
+
+  /* Physical keyboard */
+  document.addEventListener('keydown',e=>{ if(G.done) return;
+    if(e.key==='Enter') submitLine(); else if(e.key==='Backspace'){ e.preventDefault(); back(); }
+    else if(/^[a-z]$/i.test(e.key)) push(e.key.toUpperCase());
+  });
+
+  /* Rules */
+  bindTap(document.getElementById('rulesBtn'), ()=>{ showOverlay('#rulesBackdrop'); setTimeout(()=>document.querySelector('.rules')?.focus(),0); });
+  bindTap(document.getElementById('rulesCloseBtn'), ()=>{ hideOverlay('#rulesBackdrop'); });
+
+  /* Summary */
+  bindTap(document.getElementById('shareBtn'), shareText);
+  bindTap(document.getElementById('closeSummary'), ()=>{ hideOverlay('#summaryBackdrop'); });
+
+  /* Manage Words */
+  bindTap(document.getElementById('manageWordsBtn'), ()=>{ $("#singleWord").value=''; showOverlay('#wordsBackdrop'); updateWordsStat(); const params=new URLSearchParams(location.search); const dev=params.get('dev')==='1'; const devPanel=document.getElementById('devTools'); if(dev && devPanel) devPanel.style.display=''; });
+  bindTap(document.getElementById('wordsClose'), ()=>{ hideOverlay('#wordsBackdrop'); });
+  document.getElementById('addOneBtn').onclick=handleAddOne;
+  document.getElementById('singleWord').addEventListener('keydown',e=>{ if(e.key==='Enter'){ handleAddOne(); } });
+
+  /* Premium & upsell */
+  bindTap(document.getElementById('premiumBtn'), ()=>{ if(!isPremiumUser) showOverlay('#upsellBackdrop'); else toast('Premium is already active'); });
+  bindTap(document.getElementById('upsellCancel'), ()=>{ hideOverlay('#upsellBackdrop'); });
+  bindTap(document.getElementById('upsellUnlock'), ()=>{ setPremium(true); hideOverlay('#upsellBackdrop'); toast('Premium unlocked (demo)'); if($("#modeBackdrop").classList.contains('on') && pendingMode===Mode.CUSTOM){ $("#customInputs").style.display='flex'; } });
+  document.getElementById('upsellCheckout').setAttribute('href','#');
+
+  document.getElementById('editTag').textContent = VERSION_TAG;
+
+  /* Mode dialog controls + one-time toast on Today */
+  bindTap(document.getElementById('modeCancel'), ()=>{ hideOverlay('#modeBackdrop'); });
+  bindTap(document.getElementById('modeApply'),  ()=>{ applyMode(); hideOverlay('#modeBackdrop'); });
+  bindTap(document.getElementById('modeToday'),  ()=>{ pendingMode = Mode.TODAY;  $("#customInputs").style.display='none'; toastOncePerNYDay("Today’s Anchors locked to NY day"); });
+  bindTap(document.getElementById('modePlus'),   ()=>{ pendingMode = Mode.PLUS;   $("#customInputs").style.display='none'; });
+  bindTap(document.getElementById('modeCustom'), ()=>{ pendingMode = Mode.CUSTOM; $("#customInputs").style.display = isPremiumUser ? 'flex' : 'none'; });
+})();
+
+/* ======= DICTIONARY, DAILY LOCK, GAMEPLAY, SUMMARY ======= */
+const DICT_RAW=`ABEND
+ABETS
+ABHOR
+ABIDE
+ABLED
+ABLER
+ABODE
+ABORT
+ABOUT
+ABOVE
+ABRIM
+ABUNE
+ABUSE
+ABYSM
+ACERB
+ACHES
+ACIDS
+ACING
+ACMES
+ACORN
+ACRES
+ACRID
+ACTIN
+ACTOR
+ACUTE
+ADEPT
+ADIEU
+ADIOS
+ADLIB
+ADMIX
+ADOBE
+ADOPT
+ADORE
+ADORN
+ADULT
+ADUST
+AFORE
+AFTER
+AGENT
+AGILE
+AGLOW
+AGONY
+AHEAD
+AIDER
+AILED
+AIMED
+AIRED
+AISLE
+ALBUM
+ALDER
+ALEPH
+ALERT
+ALIEN
+ALIGN
+ALIKE
+ALINE
+ALIVE
+ALKYD
+ALOFT
+ALONE
+ALONG
+ALOUD
+ALTER
+AMBER
+AMBLE
+AMEND
+AMIDE
+AMIGO
+AMINO
+AMITY
+AMONG
+AMOUR
+AMPLE
+AMPLY
+AMUSE
+ANCHO
+ANDRO
+ANEAR
+ANGEL
+ANGER
+ANGLE
+ANGLO
+ANGRY
+ANIME
+ANKLE
+ANODE
+ANTIC
+ANTSY
+ANVIL
+APACE
+APART
+APHID
+APING
+APNEA
+APRON
+APTER
+ARBOR
+ARCHE
+ARGON
+ARGUE
+ARISE
+AROSE
+ARSON
+ARTEL
+ASCOT
+ASHEN
+ASIDE
+ASKEW
+ASPEN
+ASTER
+ASTIR
+ATONE
+AUDIO
+AUDIT
+AURIC
+AVERS
+AVERT
+AUTOS
+AVOID
+AWFUL
+AWOKE
+AXILE
+AXIOM
+AXION
+AZURE
+AZURY
+AZYME
+AZYMS
+BACHE
+BACON
+BADGE
+BADLY
+BAGEL
+BAILE
+BAILS
+BAKER
+BAKES
+BALDS
+BALDY
+BALES
+BALMY
+BANAL
+BANDS
+BANED
+BANGS
+BANJO
+BANKS
+BARED
+BAREN
+BARES
+BARGE
+BARKS
+BARON
+BASAL
+BASED
+BASIC
+BASIL
+BASIN
+BATCH
+BATHE
+BATHS
+BATON
+BAYOU
+BEACH
+BEADS
+BEAMY
+BEARD
+BEAST
+BEAUX
+BEDIM
+BEGAN
+BEGIN
+BEGOT
+BEGUN
+BEIGE
+BELAY
+BELCH
+BELOW
+BELTS
+BENCH
+BERTH
+BERYL
+BESET
+BIBLE
+BICEP
+BIDET
+BIGHT
+BIGLY
+BIGOT
+BIJOU
+BILGE
+BINGE
+BIRCH
+BIRTH
+BISON
+BITER
+BITES
+BLACK
+BLADE
+BLAME
+BLAND
+BLANK
+BLARE
+BLAST
+BLAZE
+BLAZY
+BLEAK
+BLEAT
+BLEND
+BLENT
+BLIMP
+BLIND
+BLINK
+BLITZ
+BLOAT
+BLOCK
+BLOKE
+BLOND
+BLOWN
+BLUER
+BLUES
+BLUNT
+BLURB
+BLURT
+BOARD
+BOARS
+BOAST
+BODGE
+BODLE
+BOILS
+BOING
+BOINK
+BOGEY
+BOGIE
+BOLAS
+BOLTS
+BOLUS
+BONED
+BONES
+BONUS
+BORIC
+BOSUN
+BOTCH
+BOTHY
+BOUND
+BOWEL
+BOWLS
+BOXED
+BOXER
+BOXES
+BRACE
+BRACK
+BRACT
+BRAID
+BRAKE
+BRAND
+BRASH
+BRAVE
+BRAVO
+BRAWL
+BRAWN
+BRAZE
+BREAD
+BREAK
+BREWS
+BRIAR
+BRICK
+BRIDE
+BRIEF
+BRINE
+BRING
+BRINK
+BRINY
+BRISK
+BRITH
+BROIL
+BROKE
+BROTH
+BROWN
+BRUHS
+BRUIN
+BRUIT
+BRUNT
+BRUSH
+BRUTE
+BUCKO
+BUDGE
+BUFOS
+BUGLE
+BUILD
+BUILT
+BULKY
+BUNCO
+BUNCH
+BUNTS
+BURGH
+BURIN
+BURNT
+BURST
+BUSHY
+BUSTY
+BUTEO
+BUXOM
+BYLAW
+BYRES
+BYTES
+CABAL
+CABER
+CABIN
+CABLE
+CADET
+CADGE
+CADGY
+CADIE
+CADIS
+CADRE
+CAFES
+CAGED
+CAGER
+CAGES
+CAGEY
+CAIRN
+CAKED
+CAKES
+CALFS
+CALIF
+CALIS
+CALMS
+CALMY
+CALVE
+CAMEL
+CAMEO
+CAMPS
+CANAL
+CANDY
+CANED
+CANER
+CANES
+CANOE
+CAPER
+CAPES
+CAPON
+CAPUT
+CARAT
+CARDS
+CARED
+CARES
+CARGO
+CAROB
+CAROL
+CAROM
+CARTE
+CARVE
+CASTE
+CATCH
+CATER
+CAUSE
+CAVAL
+CAVED
+CAVES
+CAVIL
+CEDAR
+CEDIS
+CELTS
+CENTS
+CEORL
+CETYL
+CHAFE
+CHAIN
+CHAIR
+CHAIS
+CHALK
+CHAMP
+CHANT
+CHAOS
+CHAPS
+CHARD
+CHARE
+CHARM
+CHART
+CHASE
+CHASM
+CHATS
+CHEAP
+CHEAT
+CHEFS
+CHELA
+CHEMO
+CHEST
+CHEWS
+CHIDE
+CHIEF
+CHILD
+CHILE
+CHIME
+CHIMP
+CHINA
+CHINS
+CHIPS
+CHIRP
+CHIVE
+CHOIR
+CHOKE
+CHOMP
+CHORD
+CHORE
+CHOSE
+CHOUX
+CHOWS
+CHUMP
+CHUNK
+CHURN
+CIDER
+CIGAR
+CLAIM
+CLAMS
+CLANG
+CLANK
+CLASH
+CLASP
+CLAWS
+CLAYS
+CLEAN
+CLEAR
+CLEAT
+CLEFS
+CLERK
+CLIMB
+CLIME
+CLINE
+CLING
+CLINK
+CLIPS
+CLOAK
+CLODS
+CLOGS
+CLOMP
+CLONE
+CLONK
+CLOPS
+CLOSE
+CLOUD
+CLOUT
+CLOVE
+CLOWN
+CLUBS
+CLUCK
+CLUMP
+CLUNG
+CLUNK
+COACH
+COAST
+COATS
+COBRA
+CODAS
+CODEX
+COILS
+COINS
+COLES
+COLTS
+COMAS
+COMBS
+COMER
+COMES
+COMET
+COMFY
+COMIC
+COMLY
+COMPS
+CONAL
+CONDO
+CONES
+CONGA
+CONIC
+CONKS
+CONTE
+COPED
+COPES
+COPRA
+COPSE
+CORAL
+CORDS
+CORED
+CORES
+CORGI
+CORIA
+CORNS
+CORNU
+CORPS
+CORSE
+COSET
+COUGH
+COULD
+COUNT
+COUPE
+COUPS
+COURT
+COVEN
+COVER
+COVES
+COVET
+COVEY
+COVID
+COVIN
+COWED
+COWER
+COWLS
+COWRY
+COXAE
+COXAL
+COXED
+COXES
+COZEN
+COZES
+COZEY
+COZIE
+CRABS
+CRAFT
+CRAGS
+CRAKE
+CRAMP
+CRAMS
+CRANE
+CRANK
+CRAPE
+CRAPS
+CRASH
+CRATE
+CRAVE
+CRAWL
+CRAWS
+CRAYS
+CRAZE
+CRAZY
+CREAK
+CREAM
+CREDO
+CREPT
+CREST
+CREWS
+CRIBS
+CRIED
+CRIER
+CRIES
+CRIME
+CRIMP
+CRISP
+CRITH
+CROAK
+CROES
+CROFT
+CRONE
+CRONY
+CROPS
+CROUP
+CROUT
+CROWD
+CROWN
+CROWS
+CRUDE
+CRUEL
+CRUMB
+CRUMP
+CRUSE
+CRUSH
+CRUST
+CRWTH
+CRYPT
+CUBIC
+CUBIT
+CULTS
+CUMIN
+CURBS
+CURDS
+CURED
+CURES
+CURLS
+CURLY
+CURSE
+CURST
+CURVE
+CURVY
+CUTER
+CUTIE
+CUTIN
+CUTIS
+CYNER
+CYPRE
+CZARS
+DACES
+DACHS
+DAHIS
+DAHLS
+DAIGH
+DAILY
+DAIMS
+DAIRY
+DAIMS
+DAINT
+DAISE
+DAISY
+DAKER
+DAMES
+DAMNS
+DAMPS
+DANCE
+DANCY
+DANGS
+DANIO
+DANLI
+DARBY
+DARCY
+DARED
+DARES
+DARIC
+DARKS
+DARTS
+DASHY
+DATED
+DATER
+DATES
+DATUM
+DATUS
+DAUBY
+DAUNT
+DAVEN
+DAVIT
+DAWNS
+DAWTS
+DAZED
+DAZES
+DEALS
+DEALT
+DEANS
+DEARS
+DEARY
+DEATH
+DEBAR
+DEBIT
+DEBTS
+DEBUG
+DEBUT
+DECAF
+DECAL
+DECAY
+DECKS
+DECOR
+DECOY
+DECRY
+DEFIX
+DEFOG
+DEGAS
+DEIGN
+DEISM
+DEIST
+DEITY
+DELAY
+DELFT
+DELIS
+DELTA
+DELTS
+DEMIT
+DEMUR
+DENAR
+DENIM
+DENSA
+DENTS
+DENTY
+DEOXY
+DEPOT
+DEPTH
+DERAT
+DERBY
+DERMA
+DETIN
+DETOX
+DETUR
+DEVON
+DEVOT
+DEVOW
+DEWAR
+DEWAX
+DIACT
+DIALS
+DIARY
+DIAZO
+DICER
+DICES
+DICEY
+DICOT
+DIETS
+DIMER
+DIMES
+DIMLY
+DINAR
+DINED
+DINER
+DINGO
+DINGS
+DINGY
+DINKY
+DINOS
+DINTS
+DIPSY
+DIRCA
+DIRGE
+DIRKS
+DIRTY
+DISCO
+DISHY
+DINKY
+DITCH
+DITSY
+DITZY
+DIVER
+DIVES
+DIVOT
+DJATI
+DOBLA
+DOBRA
+DOCKS
+DOERS
+DOETH
+DOGMA
+DOILY
+DOING
+DOITS
+DOLTS
+DOMED
+DOMES
+DONUT
+DOPES
+DOPEY
+DORAD
+DORKY
+DORMY
+DORTS
+DOTER
+DOTES
+DOUBT
+DOUCE
+DOUGH
+DOURA
+DOUSE
+DOWEL
+DOWER
+DOWNY
+DOWRY
+DOWSE
+DOXIE
+DOYEN
+DOZEN
+DRABS
+DRAFT
+DRAGS
+DRAIN
+DRAKE
+DRAMS
+DRANK
+DRAPE
+DRAWL
+DRAWN
+DREAM
+DREGS
+DRIER
+DRIES
+DRIFT
+DRINK
+DRIPS
+DRIPY
+DRIVE
+DRONE
+DROPS
+DROVE
+DROWN
+DRUBS
+DRUGS
+DRUNK
+DRUPE
+DRUSE
+DRYAD
+DUALS
+DUCAL
+DUCAT
+DUCES
+DUCKS
+DUCKS
+DUCTS
+DUELS
+DUETS
+DUKAT
+DUKES
+DULSE
+DUMPS
+DUMPY
+DUNCE
+DUNES
+DUNGS
+DUOMO
+DUPED
+DUPES
+DUPLY
+DURAL
+DURAS
+DUSKY
+DUSTY
+DUTCH
+DUVET
+DWALE
+DWALM
+DWAMS
+DWARF
+DWELT
+DWINE
+DYERS
+DYING
+DYNEL
+DYNES
+EARLS
+EARLY
+EARNS
+EARTH
+EASED
+EBONY
+ECHOS
+ECLAT
+ECRUS
+EDICT
+EDIFY
+EDITS
+EDUCT
+EGADS
+EIGHT
+EKING
+ELAND
+ELANS
+ELBOW
+ELFIN
+EMAIL
+EMBAR
+EMBAY
+EMBOG
+EMBOW
+EMBUE
+EMBUS
+EMIRS
+EMITS
+EMOJI
+EMONY
+EMPID
+EMPTS
+EMPTY
+ENACT
+ENDOW
+ENJOY
+ENROL
+ENSKY
+ENTRY
+ENVOY
+EPOCH
+EPOXY
+EQUAL
+EQUIP
+ERGOT
+ERUPT
+ESCOT
+ESTOC
+ESTOP
+ETHIC
+ETHOS
+ETHYL
+EVICT
+EVILS
+EXACT
+EXALT
+EXAMS
+EXCEL
+EXIST
+EXITS
+EXPAT
+EXPEL
+EXPOS
+EXTRA
+EXTOL
+EXULT
+EYING
+FABLE
+FACED
+FACER
+FACES
+FACET
+FACTS
+FADER
+FADES
+FAILS
+FAINS
+FAINT
+FAIRS
+FAIRY
+FAITS
+FAITH
+FAKED
+FAKER
+FAKES
+FALSE
+FAMED
+FAMES
+FANCY
+FANES
+FARCE
+FARED
+FARES
+FARLE
+FARMS
+FATED
+FATES
+FATLY
+FAULT
+FAUNA
+FAVUS
+FAZED
+FAZES
+FEARS
+FEAST
+FEATS
+FECAL
+FEIGN
+FELID
+FELON
+FELTS
+FEMUR
+FENCE
+FENDS
+FERAL
+FERIA
+FERLY
+FERMI
+FETAL
+FETCH
+FETID
+FETOR
+FETUS
+FEUDS
+FIBER
+FICHE
+FICHU
+FIDGE
+FIELD
+FIEND
+FIERY
+FIGHT
+FILAR
+FILCH
+FILED
+FILER
+FILES
+FILET
+FILMS
+FILMY
+FILTH
+FINAL
+FINCH
+FINDS
+FINED
+FINER
+FINES
+FINKS
+FIORD
+FIQUE
+FIRED
+FIRES
+FIRMS
+FIRST
+FIRTH
+FISHY
+FITLY
+FIVER
+FIVES
+FIXED
+FIXER
+FIXES
+FJORD
+FLABS
+FLACK
+FLAGS
+FLAIR
+FLAKE
+FLAKY
+FLAME
+FLAMS
+FLANK
+FLANS
+FLAPS
+FLARE
+FLASH
+FLASK
+FLATS
+FLAWS
+FLAXY
+FLAYS
+FLEAM
+FLEAS
+FLECK
+FLEGM
+FLESH
+FLEWS
+FLEXY
+FLICK
+FLIER
+FLIES
+FLING
+FLINT
+FLIPS
+FLIRT
+FLITE
+FLOAT
+FLOCK
+FLOES
+FLOGS
+FLORA
+FLOUT
+FLOWN
+FLOWS
+FLUBS
+FLUES
+FLUID
+FLUKE
+FLUKY
+FLUME
+FLUMP
+FLUNG
+FLUNK
+FLUOR
+FLUSH
+FLUTE
+FLUTY
+FLYER
+FOALS
+FOAMS
+FOAMY
+FOCAL
+FOCUS
+FOEHN
+FOGEY
+FOIST
+FOLIA
+FOLKS
+FOLKY
+FONDS
+FONDU
+FONTS
+FORAM
+FORAY
+FORCE
+FORGE
+FORKS
+FORMS
+FORTE
+FORTH
+FORTS
+FORTY
+FORUM
+FOULE
+FOUND
+FOUNT
+FOURS
+FOXED
+FOXES
+FOYER
+FRAGS
+FRAME
+FRANC
+FRANK
+FRAPS
+FRATS
+FRAUD
+FRAYS
+FREAK
+FREIT
+FREMD
+FRENA
+FRESH
+FRETS
+FRIED
+FRIES
+FRISK
+FRITH
+FRITZ
+FROCK
+FROES
+FROGS
+FROND
+FRONS
+FRONT
+FROSH
+FROST
+FROTH
+FROWN
+FRUIT
+FRUMP
+FUBAR
+FUBSY
+FUDGE
+FUELS
+FUGAL
+FUGLE
+FUJIS
+FUMED
+FUMES
+FUMET
+FUNDI
+FUNDS
+FURLS
+FUSED
+FUSIL
+FUSTY
+FUTON
+GABLE
+GAINS
+GAITS
+GALES
+GAMED
+GAMER
+GAMES
+GAMIC
+GAMIN
+GAMUT
+GANCH
+GANEF
+GANJA
+GAOLS
+GAPED
+GAPER
+GAPES
+GARTH
+GASPY
+GATES
+GATOR
+GAUDS
+GAUZE
+GAUZY
+GAVEL
+GAWDY
+GAWKY
+GAWKS
+GAZED
+GAZEL
+GEARS
+GECKO
+GELDS
+GELID
+GELTS
+GENIP
+GENIS
+GENOA
+GENRO
+GENTS
+GERAH
+GERMS
+GERMY
+GETAS
+GHOST
+GHOUL
+GIANT
+GIBER
+GIBES
+GIBUS
+GIFTS
+GILDS
+GILTS
+GIMPY
+GINKS
+GIRDS
+GIRLS
+GIRLY
+GIRNS
+GIROS
+GIRTH
+GIRTS
+GISMO
+GIVEN
+GIVER
+GIVES
+GLADE
+GLADS
+GLAND
+GLANS
+GLARE
+GLARY
+GLAZE
+GLEAM
+GLEAN
+GLENS
+GLENT
+GLIDE
+GLINT
+GLORY
+GLOVE
+GLOWS
+GLUED
+GLUER
+GLUES
+GLUEY
+GLUME
+GLUON
+GLYPH
+GNARL
+GNARS
+GNASH
+GNAWS
+GNOME
+GOADS
+GOATY
+GONAD
+GONER
+GORAL
+GORED
+GORES
+GORPS
+GORSE
+GORSY
+GOURD
+GOUTS
+GOUTY
+GOWAN
+GOWKS
+GOWLS
+GOWNS
+GRABS
+GRACE
+GRADE
+GRADS
+GRAFT
+GRAIL
+GRAIN
+GRAND
+GRANS
+GRANT
+GRAPE
+GRAPH
+GRASP
+GRATE
+GRAVE
+GRAVY
+GRAZE
+GREAT
+GREYS
+GRIEF
+GRIFT
+GRIME
+GRIMY
+GRIND
+GRINS
+GRIOT
+GRIPE
+GRIPS
+GRIST
+GRITH
+GRITS
+GROAN
+GRODY
+GROIN
+GROKS
+GROPE
+GROSZ
+GROTS
+GROUP
+GROUT
+GROVE
+GROWL
+GROWN
+GROWS
+GRUBS
+GRUEL
+GRUMP
+GRUNT
+GUACO
+GUANO
+GUARD
+GUCKS
+GUEST
+GUIDE
+GUILD
+GUILT
+GUIRO
+GUISE
+GULAG
+GULAR
+GULCH
+GULES
+GULFS
+GULFY
+GULPH
+GULPS
+GUNKS
+GUNKY
+GURLY
+GUSHY
+GUSTO
+GUSTY
+GUYED
+GUYOT
+GYBED
+GYBES
+GYOZA
+GYPOS
+GYRED
+GYRES
+GYRON
+GYROS
+GYRUS 
+HABIT
+HACKS
+HADES
+HADST
+HAEMS
+HAETS
+HAFTS
+HAIKA
+HAIKU
+HAILS
+HAIRS
+HAIRY
+HAJIB
+HAJIS
+HAKES
+HAKIM
+HALES
+HALON
+HALOS
+HALSE
+HALTS
+HALVE
+HAMES
+HAMIL
+HANCE
+HANDS
+HANDY
+HANGS
+HANKS
+HANKY
+HANTS
+HAPLY
+HARDY
+HARED
+HAREM
+HARES
+HARKS
+HARLS
+HARMS
+HARNS
+HARPS
+HARPY
+HARSH
+HARTS
+HASTE
+HASTY
+HATCH
+HATED
+HATER
+HATES
+HATIS
+HAULM
+HAULS
+HAUNT
+HAUTE
+HAVEN
+HAVES
+HAVOC
+HAWED
+HAWKS
+HAYED
+HAYER
+HAZED
+HAZEL
+HAZER
+HAZES
+HEADS
+HEADY
+HEALS
+HEAPS
+HEARD
+HEARS
+HEART
+HEATH
+HEATS
+HEAVY
+HECKS
+HEFTS
+HEFTY
+HEIRS
+HEIST
+HELIX
+HELMS
+HELOS
+HELPS
+HEMAL
+HEMIC
+HEMIN
+HEMPS
+HEMPY
+HENTS
+HEPAR
+HERBS
+HERBY
+HERDS
+HERLS
+HERMA
+HERNS
+HERNS
+HERON
+HEROS
+HERTZ
+HEXAD
+HICKY
+HIDER
+HIDES
+HIKED
+HIKER
+HIKES
+HILAR
+HILTS
+HILUS
+HINDS
+HINDU
+HINGE
+HINTS
+HIPLY
+HIRED
+HIRES
+HIVED
+HIVER
+HIVES
+HOAGY
+HOARD
+HOARY
+HOCKS
+HOCUS
+HODJA
+HOGAN
+HOISE
+HOIST
+HOITS
+HOKED
+HOKEY
+HOLDS
+HOLED
+HOLES
+HOLEY
+HOLMS
+HOLTS
+HOMED
+HOMER
+HOMES
+HOMEY
+HONDA
+HONED
+HONER
+HONES
+HONEY
+HONKS
+HOPED
+HOPER
+HOPES
+HORAS
+HORDE
+HORNS
+HORSE
+HORSY
+HOSED
+HOSEL
+HOSEN
+HOSTA
+HOTEL
+HOTLY
+HOUND
+HOUPE
+HOURI
+HOURS
+HOUSE
+HOVEL
+HOVER
+HOWDY
+HOWEL
+HOWES
+HOWFS
+HOWKS
+HOWLS
+HOXED
+HOXES
+HOYAS
+HUCKS
+HUGER
+HULAS
+HULKS
+HULKY
+HUMAN
+HUMID
+HUMPS
+HUMPY
+HUNKS
+HUNKY
+HUNTS
+HURES
+HURLS
+HURLY
+HURTS
+HUSKY
+HUTIA
+HWYLS
+HYDRA
+HYDRO
+HYENA
+HYING
+HYLAS
+HYLIC
+HYMEN
+HYMNS
+HYOID
+HYPED
+HYPER
+HYPES
+HYPHA
+HYPOS
+HYRAX
+HYRST
+IAMBS
+ICERS
+ICKER
+ICKLE
+ICONS
+ICTAL
+IDEAL
+IDEAS
+IDENT
+IDGAH
+IDLER
+IDLES
+IDOLA
+IDOLS
+IDYLS
+IFTAR
+IKARY
+IKATS
+ILEAC
+ILEUM
+IMAGE
+IMAGO
+IMBED
+IMBUE
+IMPEL
+IMPLY
+INAPT
+INARM
+INBOX
+INCUR
+INCUS
+INDEX
+INDUE
+INEPT
+INERT
+INFER
+INFIX
+INFRA
+INGOT
+INKED
+INKER
+INKLE
+INLAY
+INLET
+INPUT
+INTEL
+INTER
+INTRO
+IOTAS
+IRADE
+IRATE
+IRKED
+IRONS
+IRONY
+ISLED
+ISLET
+ISTLE
+ITCHY
+ITEMS
+IVORY
+IXTLE
+IZARS
+IZOTE
+JABOT
+JACAL
+JACKS
+JADES
+JAGER
+JAILS
+JAKES
+JAMBO
+JAMBS
+JANES
+JANKY
+JANTY
+JAPED
+JAPER
+JAPES
+JARLS
+JASPE
+JAUNT
+JAUPS
+JAWED
+JEANS
+JERKS
+JERKY
+JHILS
+JIBED
+JIBER
+JIBES
+JIHAD
+JILTS
+JIMPS
+JINGO
+JIRDS
+JIRGA
+JIVED
+JIVES
+JIVEY
+JOCKS
+JOHNS
+JOINS
+JOINT
+JOIST
+JOKED
+JOKER
+JOKES
+JOLTS
+JONES
+JONGS
+JOTAS
+JOUAL
+JOUKS
+JOULE
+JOWAR
+JOWLS
+JOWLY
+JOYED
+JUBAS
+JUBES
+JUCKS
+JUCOS
+JUDGE
+JUDGY
+JUGAL
+JUICE
+JUICY
+JUKED
+JUKES
+JULEP
+JUMBO
+JUMPS
+JUMPY
+JUNCO
+JUNKS
+JUNKY
+JUNTA
+JUNTO
+JUPES
+JUPON
+JURAL
+JURAT
+JUTES
+JUTIA
+KAFIR
+KANJI
+KAPUT
+KARAT
+KEFIR
+KILNS
+KILOS
+KILTS
+KINDA
+KINDS
+KINGS
+KITES
+KLUTZ
+KNAPS
+KNARL
+KNARS
+KNAVE
+KNEAD
+KNELT
+KNIFE
+KNISH
+KNITS
+KNIVE
+KNOBS
+KNOPS
+KNOSP
+KNOTS
+KNOWN
+KNOWS
+KNUBS
+KNURL
+KNURS
+KRAFT
+KRAUT
+KUDOS
+LABEL
+LABOR
+LACED
+LACES
+LACKS
+LADEN
+LAGER
+LAIRD
+LAIRE
+LAIRS
+LAKES
+LAKHS
+LAMBS
+LAMPS
+LANCE
+LANDS
+LANES
+LANKY
+LAPSE
+LARGE
+LARKS
+LASER
+LATCH
+LATER
+LATEX
+LATHE
+LAUGH
+LAWNS
+LAXER
+LAYER
+LAYUP
+LEADS
+LEAFS
+LEAFY
+LEAKS
+LEAKY
+LEANS
+LEANT
+LEAPS
+LEAPT
+LEARN
+LEASH
+LEAST
+LEFTY
+LEGIT
+LEMON
+LEMUR
+LENDS
+LETUP
+LIANG
+LIARS
+LIBEL
+LIBRA
+LICKS
+LIENS
+LIFER
+LIFTS
+LIGER
+LIGHT
+LIKED
+LIKEN
+LIKER
+LIKES
+LIMBO
+LIMBS
+LIMOS
+LINED
+LINER
+LINES
+LINGO
+LINKS
+LIONS
+LITRE
+LIVED
+LIVEN
+LIVER
+LIVES
+LOACH
+LOADS
+LOAFS
+LOANS
+LOATH
+LOBES
+LOCHS
+LOCKS
+LOCKY
+LOCUM
+LODGE
+LOFTS
+LOFTY
+LOGIC
+LOGIN
+LONER
+LONGA
+LONGS
+LORDS
+LOSER
+LOTUS
+LOUSE
+LOUSY
+LOVED
+LOVER
+LOVES
+LOWER
+LUBED
+LUBES
+LUCID
+LUCKY
+LUGED
+LUGER
+LUMEN
+LUMPS
+LUMPY
+LUNAR
+LUNCH
+LUNGE
+LUNGS
+LURCH
+LURED
+LURES
+LURID
+LURKS
+LUSTY
+LYING
+LYMPH
+LYRES
+LYRIC
+MACED
+MACER
+MACES
+MACHO
+MACON
+MACOS
+MACRO
+MADLY
+MAGIC
+MAGOT
+MAIDS
+MAILS
+MAINS
+MAIZE
+MAJOR
+MAKER
+MAKES
+MALES
+MALIS
+MALTS
+MALTY
+MANED
+MANES
+MANGE
+MANGO
+MANGY
+MANIC
+MANGO
+MANLY
+MANOR
+MAPLE
+MARCH
+MARKS
+MARSH
+MARTS
+MASON
+MATCH
+MATED
+MATER
+MATES
+MAULS
+MAUVE
+MAXED
+MAXES
+MAYBE
+MAYOR
+MAZES
+MEALS
+MEALY
+MEANS
+MEANT
+MEANY
+MEATS
+MEATY
+MEDAL
+MEDIA
+MEDIC
+MELON
+MELTS
+MENUS
+MERCY
+MERIT
+METAL
+METRO
+MICRO
+MIDGE
+MIDST
+MIGHT
+MIKED
+MIKES
+MILER
+MILES
+MILKY
+MINCE
+MINDS
+MINED
+MINER
+MINES
+MINKS
+MINOR
+MINTS
+MINTY
+MINUS
+MIRED
+MIRES
+MIRTH
+MISER
+MISTY
+MITES
+MIXED
+MIXER
+MIXES
+MIXUP
+MOANS
+MOATS
+MOCHA
+MOCKS
+MODAL
+MODEL
+MODES
+MOGUL
+MOHRS
+MOIST
+MOLAR
+MOLDY
+MOLES
+MONDE
+MONEY
+MONKS
+MONTE
+MONTH
+MOPED
+MOPER
+MOPES
+MOPEY
+MORAE
+MORAL
+MORAY
+MORES
+MORPH
+MORSE
+MOTEL
+MOTES
+MOTHS
+MOTHY
+MOTIF
+MOULD
+MOULT
+MOUND
+MOUNT
+MOURN
+MOUSE
+MOUSY
+MOUTH
+MOVED
+MOVER
+MOVES
+MOVIE
+MOWED
+MOWER
+MUCKS
+MUCKY
+MULCH
+MULED
+MULES
+MULTI
+MUNCH
+MURAL
+MURKY
+MUSED
+MUSER
+MUSHY
+MUSIC
+MUSKY
+MUSTY
+MUTED
+MUTER
+MUTES
+MYTHS
+NACHO
+NADIR
+NAILS
+NAIVE
+NAKED
+NAMED
+NAMES
+NAPED
+NAPES
+NARCO
+NARKS
+NARKY
+NASTY
+NAVEL
+NEARS
+NECKS
+NEIGH
+NERDS
+NERDY
+NEURO
+NEWLY
+NEXUS
+NICER
+NICHE
+NICKS
+NIFTY
+NIGHT
+NITRO
+NIXED
+NIXES
+NOBLE
+NODAL
+NODES
+NOELS
+NOIRS
+NOISE
+NOISY
+NOMAD
+NORMS
+NORTH
+NOSED
+NOSEY
+NOTCH
+NOTED
+NOTES
+NOTUM
+NOVAS
+NOVEL
+NUDES
+NUDGE
+NUDIE
+NUKES
+NUMBS
+NURSE
+NYMPH
+OAKEN
+OATHS
+OBEYS
+OBITS
+OCEAN
+OCTAL
+OFTEN
+OGLER
+OGLES
+OILED
+OILER
+OINKS
+OKAYS
+OLDEN
+OLDER
+OLDIE
+OLIVE
+OMEGA
+OMENS
+OMERS
+OMITS
+ONERY
+ONSET
+OPALS
+OPAHS
+OPALS
+OPENS
+OPERA
+OPINE
+OPING
+OPIUM
+OPSIN
+OPTED
+OPTIC
+ORATE
+ORBED
+ORBIT
+ORCAS
+ORCIN
+ORGAN
+ORGUE
+ORIEL
+OTARY
+OTHER
+OUGHT
+OUNCE
+OUTED
+OUTER
+OVALS
+OVARY
+OVATE
+OVENS
+OVERT
+OWING
+OWNED
+OWNER
+OXIDE
+OXIME
+OXLIP
+OXYDE
+PACED
+PACER
+PACES
+PACKS
+PAGED
+PAGER
+PAGES
+PAILS
+PAINS
+PAINT
+PAIRS
+PALED
+PALER
+PALES
+PALET
+PALIS
+PALMS
+PALSY
+PANDS
+PANDY
+PANED
+PANEL
+PANES
+PANGS
+PANSY
+PANTO
+PANTS
+PANTY
+PARCH
+PARKS
+PARSE
+PARTS
+PARTY
+PASTE
+PASTY
+PATCH
+PATED
+PATEL
+PATHS
+PATIO
+PATSY
+PAUSE
+PAVED
+PAVER
+PAVES
+PAWED
+PAWNS
+PAYED
+PAYER
+PAYOR
+PEACH
+PEAKS
+PEALS
+PEARL
+PEARS
+PECAN
+PEDAL
+PELTS
+PENAL
+PERCH
+PERIL
+PERKS
+PERKY
+PERMS
+PESKY
+PESTO
+PETAL
+PHASE
+PHONE
+PHONY
+PHYLA
+PHYLE
+PIANO
+PICKS
+PICKY
+PIERS
+PIETY
+PIGMY
+PIKED
+PIKER
+PIKES
+PILAF
+PILAU
+PILAW
+PILCH
+PILED
+PILES
+PILOT
+PINCH
+PINES
+PINEY
+PINGS
+PINKY
+PINOT
+PINTO
+PINTS
+PINUP
+PIOUS
+PIQUE
+PITAS
+PITCH
+PITHY
+PIVOT
+PIXEL
+PLACE
+PLACK
+PLAGE
+PLAID
+PLAIN
+PLAIT
+PLANE
+PLANK
+PLANS
+PLANT
+PLATE
+PLATS
+PLAYS
+PLEAD
+PLEAS
+PLEAT
+PLEBS
+PLEON
+PLICA
+PLIED
+PLIER
+PLOTS
+PLOWS
+PLUCK
+PLUGS
+PLUMB
+PLUME
+PLUMS
+PLUNK
+PLUSH
+PLYER
+POACH
+POEMS
+POESY
+POETS
+POINT
+POISE
+POKED
+POKER
+POKES
+POKEY
+POKUS
+POLAR
+POLED
+POLER
+POLES
+POLIO
+POLKA
+PONDS
+PORCH
+PORED
+PORES
+PORGE
+PORGY
+PORKY
+PORTS
+PORUS
+POSED
+POSER
+POSIT
+POTED
+POUCH
+POUND
+POURS
+POUTY
+POWER
+PRANK
+PRAWN
+PRAYS
+PREYS
+PRICE
+PRICK
+PRICY
+PRIDE
+PRIED
+PRIES
+PRIME
+PRIMO
+PRINT
+PRISM
+PRIVY
+PRIZE
+PROBE
+PROMS
+PRONE
+PRONG
+PROSE
+PROUD
+PROVE
+PROWL
+PROXY
+PRUDE
+PRUNE
+PSALM
+PSYCH
+PUBIC
+PUCKS
+PUDGY
+PUKED
+PUKES
+PULSE
+PUMAS
+PUNCH
+PUNKS
+PUNKY
+PUNTS
+PURGE
+PURSE
+PUSHY
+PYROS
+PYXIE
+QADIS
+QERIS
+QINOT
+QIYAS
+QUACK
+QUADS
+QUAGS
+QUAIL
+QUAIS
+QUAKE
+QUAKY
+QUALM
+QUANT
+QUARE
+QUARK
+QUARL
+QUART
+QUASH
+QUASI
+QUATS
+QUBIT
+QUEAN
+QUERN
+QUERY
+QUEST
+QUEYS
+QUICK
+QUIDS
+QUIET
+QUILT
+QUINA
+QUINS
+QUINT
+QUIPS
+QUIRE
+QUIRK
+QUIRT
+QUITE
+QUITS
+QUODS
+QUOIN
+QUOIT
+QUONK
+QUOTA
+QUOTE
+QUOTH
+QURSH
+RABID
+RACED
+RACER
+RACES
+RACKS
+RADIO
+RADIX
+RADON
+RAFTS
+RAGED
+RAGER
+RAGES
+RAIDS
+RAILS
+RAINS
+RAINY
+RAISE
+RAKED
+RAKER
+RAKES
+RAMEN
+RAMPS
+RANCH
+RANGE
+RANKS
+RANTS
+RAPID
+RASPY
+RATED
+RATES
+RATIO
+RAVED
+RAVEN
+RAVES
+RAYON
+RAZED
+REACH
+REACT
+READS
+READY
+REALM
+REAMS
+REAPS
+REBAR
+REBID
+REBUS
+REBUT
+RECAP
+RECON
+RECUR
+RECUT
+REDRY
+REDUB
+REFIT
+REFLY
+REFRY
+REGAL
+REHAB
+REIGN
+REINS
+RELAX
+RELAY
+RELIC
+RELIT
+REMAP
+REMIT
+REMIX
+RENAL
+RENTS
+REPAY
+REPLY
+RESET
+RESIN
+RESIT
+RESOW
+RETCH
+RHEAS
+RHEUM
+RHINO
+RHOMB
+RHUMB
+RHYME
+RIDER
+RIDES
+RIDGE
+RIFLE
+RIFTS
+RIGHT
+RIGOR
+RINDS
+RINGS
+RINKS
+RINSE
+RIOTS
+RIPEN
+RIPES
+RISEN
+RISER
+RISKY
+RITES
+RITZY
+RIVAL
+RIVET
+ROACH
+ROADS
+ROAMS
+ROAST
+ROBED
+ROBES
+ROBIN
+ROCKS
+ROCKY
+ROGUE
+ROHAN
+ROILS
+ROLES
+ROMPS
+ROPED
+ROPER
+ROPES
+ROUGE
+ROUGH
+ROUND
+ROUSE
+ROUTE
+ROVES
+ROWDY
+ROWED
+ROWER
+ROYAL
+RUBIN
+RUGBY
+RUINS
+RULED
+RULER
+RULES
+RUMBA
+RUNTS
+RUNTY
+RUSTY
+SABER
+SABLE
+SABRE
+SACKS
+SADLY
+SAFER
+SAHIB
+SAINT
+SALON
+SALTY
+SALVE
+SALVO
+SANDY
+SANER
+SATIN
+SATYR
+SAUBA
+SAUCE
+SAUCY
+SAUTE
+SAVED
+SAVER
+SAVOR
+SAVOY
+SAWED
+SAWER
+SAYER
+SCALD
+SCALE
+SCALP
+SCALY
+SCAMP
+SCANT
+SCARE
+SCARF
+SCARY
+SCENT
+SCION
+SCOLD
+SCONE
+SCOPE
+SCORE
+SCORN
+SCOUR
+SCOUT
+SCOWL
+SCRAM
+SCRAP
+SCREW
+SCRUB
+SCRUM
+SCUBA
+SEDAN
+SEPIA
+SERIF
+SERIN
+SERUM
+SETUP
+SHACK
+SHADE
+SHADY
+SHAFT
+SHAKE
+SHAKY
+SHALE
+SHALT
+SHAME
+SHANK
+SHAPE
+SHARD
+SHARE
+SHARK
+SHARP
+SHAVE
+SHAWL
+SHEAR
+SHEIK
+SHELF
+SHIED
+SHIFT
+SHINE
+SHINY
+SHIRE
+SHIRK
+SHIVA
+SHIVE
+SHLEP
+SHOAL
+SHOCK
+SHONE
+SHORE
+SHORN
+SHORT
+SHOUT
+SHOVE
+SHOWN
+SHOWY
+SHRED
+SHREW
+SHRUB
+SHRUG
+SHUCK
+SHUNT
+SICKO
+SIGHT
+SIGMA
+SILKY
+SILTY
+SINCE
+SINEW
+SINGE
+SIREN
+SIXTH
+SIXTY
+SIZED
+SKATE
+SKIER
+SKIMP
+SKINT
+SKIRT
+SKIVE
+SLACK
+SLADE
+SLAIN
+SLANG
+SLANT
+SLATE
+SLAVE
+SLEPT
+SLICE
+SLICK
+SLIDE
+SLIME
+SLIMY
+SLING
+SLINK
+SLOPE
+SLOTH
+SLUMP
+SLUNG
+SLURP
+SMACK
+SMART
+SMEAR
+SMELT
+SMILE
+SMIRK
+SMITE
+SMITH
+SMOCK
+SMOKE
+SMOKY
+SMOTE
+SNACK
+SNAFU
+SNAIL
+SNAKE
+SNAKY
+SNARE
+SNARL
+SNEAK
+SNIDE
+SNIFT
+SNIPE
+SNORE
+SNORT
+SNOUT
+SNOWY
+SNUCK
+SOAPY
+SOBER
+SOFTY
+SOLAR
+SOLID
+SOLVE
+SONAR
+SONIC
+SORTA
+SOUND
+SOUPY
+SOUTH
+SOWED
+SOWER
+SPACE
+SPADE
+SPANK
+SPARE
+SPARK
+SPATE
+SPAWN
+SPEAK
+SPEAR
+SPECK
+SPELT
+SPEND
+SPENT
+SPERM
+SPICE
+SPICY
+SPIED
+SPIEL
+SPIKE
+SPIKY
+SPILT
+SPINE
+SPINY
+SPIRE
+SPITE
+SPLAT
+SPLIT
+SPOIL
+SPOKE
+SPORE
+SPORT
+SPOUT
+SPRAY
+SPRIG
+SPUNK
+SPURN
+SPURT
+SPUTA
+SQUAB
+SQUAD
+SQUAM
+SQUAT
+SQUIB
+SQUID
+SQUIN
+SQUIT
+SQUIZ
+STACK
+STAGE
+STAID
+STAIN
+STAIR
+STAKE
+STALE
+STALK
+STAMP
+STAND
+STANK
+STAPH
+STARE
+STARK
+STAVE
+STEAD
+STEAK
+STEAL
+STEAM
+STEIN
+STICK
+STING
+STINK
+STOCK
+STOIC
+STOKE
+STOLE
+STOMP
+STONE
+STONY
+STORE
+STORK
+STORM
+STORY
+STOVE
+STRAP
+STRAW
+STRAY
+STREP
+STRIP
+STRUM
+STUCK
+STUDY
+STUMP
+STUNG
+STUNK
+STYLE
+STYME
+SUAVE
+SUCKY
+SUGAR
+SUING
+SUITE
+SULKY
+SUMAC
+SUPER
+SUPRA
+SURGE
+SURLY
+SWALE
+SWAMI
+SWAMP
+SWANK
+SWARM
+SWATH
+SWEAR
+SWEAT
+SWEPT
+SWIFT
+SWIGS
+SWINE
+SWING
+SWIPE
+SWIRL
+SWORD
+SWORE
+SWORN
+SWUNG
+SYNCH
+SYNOD
+SYNTH
+SYRUP
+TABER
+TABLE
+TACKS
+TACKY
+TACOS
+TAILS
+TAKEN
+TAKER
+TAKES
+TALES
+TALKS
+TALON
+TAMED
+TAMER
+TAMES
+TAMPS
+TANGO
+TANGY
+TANKS
+TAPED
+TAPER
+TAPES
+TAPIR
+TARDY
+TARED
+TASED
+TASER
+TAUPE
+TAWNY
+TAXED
+TAXER
+TAXES
+TAXIS
+TEACH
+TEAMS
+TEARS
+TEARY
+TECHS
+TECHY
+TEMPO
+TENDS
+TENOR
+TEPID
+TERMS
+TESLA
+THANK
+THAWS
+THEIR
+THICK
+THIEF
+THINE
+THING
+THINK
+THIRD
+THONG
+THORN
+THOSE
+THREW
+THROB
+THROW
+THRUM
+THUDS
+THUGS
+THUMB
+THUMP
+THYME
+TICKS
+TIDAL
+TIDES
+TIERS
+TIGER
+TILDE
+TILED
+TILES
+TIMED
+TIMER
+TIMES
+TINGE
+TIPSY
+TIRED
+TIRES
+TOADS
+TODAY
+TOGAS
+TOILE
+TOILS
+TOKED
+TOKEN
+TOKER
+TOKES
+TOMBS
+TONAL
+TONED
+TONER
+TONES
+TONGS
+TONIC
+TOPAZ
+TOPED
+TOPER
+TOPIC
+TORCH
+TOUCH
+TOUGH
+TOURS
+TOWED
+TOWEL
+TOWER
+TOWNS
+TOXIC
+TOXIN
+TOYED
+TRACE
+TRACK
+TRADE
+TRAIL
+TRAIN
+TRAMP
+TRAMS
+TRANS
+TRAPS
+TRASH
+TRAWL
+TRAYS
+TREAD
+TREKS
+TREND
+TRIAD
+TRIAL
+TRIBE
+TRICE
+TRICK
+TRIED
+TRIES
+TRIKE
+TRIMS
+TRIOS
+TRIPE
+TRIPS
+TRIPY
+TROPE
+TROVE
+TRUCE
+TRUCK
+TRULY
+TRUMP
+TRUNK
+TSADE
+TSINE
+TSUBO
+TUBAL
+TUBED
+TUBER
+TUBES
+TUCKS
+TULIP
+TUMOR
+TUNAS
+TUNED
+TUNER
+TUNES
+TUNIC
+TURBO
+TURDS
+TURFS
+TURNS
+TURPS
+TURSE
+TUSCH
+TUXES
+TWAES
+TWANG
+TWEAK
+TWERP
+TWICE
+TWIGS
+TWIGY
+TWINE
+TWINS
+TWIRL
+TYING
+TYKES
+TYPED
+TYPES
+TYPOS
+TYRES
+TYROS
+TZARS
+UANGS
+UAYEB
+UDALS
+UDONS
+UFERS
+UHLAN
+UINAL
+UKASE
+ULCER
+ULEMA
+ULNAD
+ULNAE
+ULNAR
+ULNAS
+ULPAN
+ULTRA
+ULVAS
+UMBEL
+UMBER
+UMBOS
+UMBRA
+UMBRE
+UMIAK
+UMPED
+UMPTY
+UNAPT
+UNARM
+UNARY
+UNBAG
+UNBAN
+UNBAR
+UNBED
+UNBID
+UNBOX
+UNCAL
+UNCAP
+UNCIA
+UNCLE
+UNCOS
+UNCUS
+UNCUT
+UNDAM
+UNDER
+UNDUE
+UNDUG
+UNFED
+UNFIT
+UNFIX
+UNGOD
+UNGOT
+UNHAT
+UNHIP
+UNHIT
+UNICA
+UNIFY
+UNITE
+UNITS
+UNITY
+UNJAM
+UNKED
+UNKET
+UNKID
+UNLAW
+UNLAY
+UNLED
+UNLET
+UNLID
+UNLIT
+UNMET
+UNMIX
+UNPEG
+UNPEN
+UNPIN
+UNPEG
+UNRID
+UNRIG
+UNRIP
+UNSAW
+UNSAY
+UNSET
+UNSEW
+UNSEX
+UNTAX
+UNTIE
+UNTIL
+UNWED
+UNWET
+UNWIT
+UNZIP
+UPBYE
+UPEND
+UPLAY
+UPSET
+UPTIE
+URAEI
+URALI
+URATE
+URBAN
+UREAL
+UREAS
+UREDO
+URENA
+URGED
+URGES
+URIAL
+URINE
+URITE
+USAGE
+USHER
+USING
+USNEA
+UTERI
+UTILE
+UVEAL
+UVEAS
+VADES
+VAGUE
+VAGUS
+VAILS
+VAIRE
+VAIRS
+VAIRY
+VAKIL
+VALES
+VALET
+VALID
+VALIS
+VALOR
+VALSE
+VALUE
+VAMPS
+VAMPY
+VANED
+VANES
+VAPES
+VAPID
+VAPOR
+VARIX
+VARUS
+VARVE
+VASAL
+VASTY
+VATIC
+VAULT
+VAUNT
+VAXED
+VEALS
+VEALY
+VEGAN
+VEGIE
+VEILS
+VEINS
+VEINY
+VELAR
+VELDS
+VELDT
+VELUM
+VENAL
+VENDS
+VENOM
+VENTS
+VERBS
+VERSO
+VERST
+VERTU
+VESPA
+VESTA
+VETCH
+VIALS
+VIAND
+VIBES
+VIBEX
+VICAR
+VICED
+VICES
+VIDEO
+VIERS
+VIEWS
+VIEWY
+VIGAS
+VIGOR
+VILER
+VINAL
+VINAS
+VINCA
+VINED
+VINER
+VINES
+VINET
+VINOS
+VINTS
+VINYL
+VIOLA
+VIOLS
+VIPER
+VIREO
+VIRGA
+VIRLS
+VIRTU
+VIRUS
+VISED
+VISER
+VISNE
+VISON
+VISOR
+VISTA
+VITAE
+VITAL
+VITEX
+VITRO
+VIXEN
+VIZOR
+VLEIS
+VLEYS
+VOCAB
+VOCAL
+VODKA
+VODUN
+VOGIE
+VOGUE
+VOICE
+VOIDS
+VOILE
+VOLAR
+VOLES
+VOLTA
+VOLTE
+VOLTS
+VOMER
+VOMIT
+VOTED
+VOTER
+VOTES
+VOUCH
+VOUGE
+VOWED
+VOWEL
+VOWER
+VOXEL
+VRAIC
+VYING
+WABUR
+WACKE
+WACKO
+WACKS
+WACKY
+WADER
+WADES
+WADGE
+WADIS
+WAFER
+WAFTS
+WAGED
+WAGER
+WAGES
+WAGON
+WAIFS
+WAILS
+WAINS
+WAIST
+WAITS
+WAIVE
+WAKAS
+WAKED
+WAKEN
+WAKER
+WAKES
+WAKFS
+WALED
+WALER
+WALES
+WALKS
+WALTY
+WALTZ
+WAMES
+WAMUS
+WANED
+WANES
+WANLY
+WANTS
+WANTY
+WARDS
+WARED
+WARES
+WARMS
+WARNS
+WARPS
+WARST
+WARTS
+WARTY
+WASTE
+WATER
+WAULK
+WAULS
+WAVED
+WAVER
+WAVES
+WAVEY
+WAXED
+WAXEN
+WAXER
+WAXES
+WAYED
+WAZIR
+WEALS
+WEANS
+WEARS
+WEARY
+WEDGY
+WEFTS
+WEIGH
+WEIRD
+WEIRS
+WELCH
+WELDS
+WELKS
+WELSH
+WELTS
+WENCH
+WENDS
+WETAS
+WETLY
+WHACK
+WHALE
+WHAMS
+WHANG
+WHAPS
+WHARE
+WHARF
+WHATS
+WHAUP
+WHAUR
+WHEAL
+WHEAT
+WHELK
+WHELM
+WHELP
+WHENS
+WHERE
+WHETS
+WHEWS
+WHEYS
+WHIDS
+WHILE
+WHIMS
+WHINE
+WHING
+WHINY
+WHIPS
+WHIRL
+WHIRS
+WHISK
+WHIST
+WHITE
+WHITS
+WHITY
+WHOLE
+WHOMP
+WHOPS
+WHORL
+WHORT
+WHOSE
+WHUMP
+WHUPS
+WHURL
+WICKS
+WICKY
+WIDEN
+WIDER
+WIDOW
+WIDTH
+WIELD
+WIFEY
+WIFTY
+WIGAN
+WIGHT
+WILCO
+WILDS
+WILED
+WILES
+WILGA
+WILTS
+WIMPS
+WIMPY
+WINCE
+WINCH
+WINDS
+WINDY
+WINED
+WINES
+WINEY
+WINGS
+WINGY
+WINKS
+WINOS
+WINZE
+WIPED
+WIPER
+WIPES
+WIRED
+WIRES
+WIRLS
+WISED
+WISER
+WISHA
+WISHT
+WISPY
+WITAN
+WITCH
+WITED
+WITHE
+WITHY
+WIVED
+WIVER
+WIVES
+WIZEN
+WIZES
+WODGE
+WOFUL
+WOKEN
+WOLDS
+WOLFS
+WOLVE
+WOMAN
+WOMBS
+WOMBY
+WOMYN
+WONGA
+WONKS
+WONKY
+WORDS
+WORDY
+WORKS
+WORLD
+WORMS
+WORMY
+WORSE
+WORST
+WORTH
+WOULD
+WOUND
+WOVEN
+WRACK
+WRAKE
+WRANG
+WRAPS
+WRAPT
+WREAK
+WRECK
+WRENS
+WREST
+WRIED
+WRIES
+WRING
+WRIST
+WRITE
+WRITS
+WRONG
+WROTE
+WROTH
+WRUNG
+WUMPH
+XEBEC
+XENIA
+XENIC
+XENYL
+XERIC
+XYLAN
+XYLEM
+XYSTA
+YACHT
+YACKS
+YAGIS
+YAIRS
+YAMEN
+YANGS
+YANKS
+YAPOK
+YAPON
+YARDS
+YARNS
+YATES
+YAUDS
+YAULD
+YAWED
+YAWLS
+YAWNS
+YEANS
+YEARN
+YEARS
+YEAST
+YELMS
+YELPS
+YENTA
+YERKS
+YETIS
+YEUKS
+YEUKY
+YIELD
+YIKES
+YIRTH
+YLEMS
+YODLE
+YOGAS
+YOGHS
+YOGIC
+YOGIN
+YOGIS
+YOKED
+YOKEL
+YOKES
+YOLKS
+YONIC
+YONIS
+YOUNG
+YOURN
+YOURS
+YOUSE
+YOWLS
+YOWZA
+YUCAS
+YUCKS
+YUFTS
+YUGAS
+YUKED
+YUKES
+YULAN
+YULES
+YURTS
+YUZUS
+ZABRA
+ZAIRE
+ZAMAN
+ZAMBO
+ZAMIA
+ZANJA
+ZEBRA
+ZERDA
+ZERKS
+ZEROS
+ZESTY
+ZETAS
+ZIBET
+ZILCH
+ZIMBS
+ZINCS
+ZINCY
+ZINEB
+ZINGS
+ZINGY
+ZINKE
+ZINKY
+ZIRAM
+ZLOTY
+ZOMBI
+ZOMER
+ZONAL
+ZONDA
+ZONED
+ZONER
+ZONES
+ZONKS
+ZORIL
+ZORIS
+ZOWIE
+ZUKES
+ZURNA
+ZYMIN
+`;
+const CUSTOM_KEY = 'perch.custom_words';
+const BK='perch.custom_words.backup';
+const DICT_DAILY = Array.from(buildSetFromBlock(DICT_RAW)).sort();
+function getCustom(){ return buildSetFromBlock(localStorage.getItem(CUSTOM_KEY)||''); }
+function setCustomFromSet(set){ localStorage.setItem(CUSTOM_KEY,[...set].sort().join('\n')); }
+function addOneCustom(word){ const u=word.toUpperCase(); if(!isIsogram(u)) return {ok:false}; const merged=new Set([...getCustom(), u]); setCustomFromSet(merged); rebuildWORDS(); backupStamp(); return {ok:true}; }
+function exportCustomText(){ return localStorage.getItem(CUSTOM_KEY)||''; }
+let WORDS = new Set([...buildSetFromBlock(DICT_RAW), ...getCustom()]);
+function rebuildWORDS(){ WORDS = new Set([...buildSetFromBlock(DICT_RAW), ...getCustom()]); updateWordsStat(); }
+function backupStamp(){ const txt=exportCustomText(); if(!txt) return; const stamp=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-'); localStorage.setItem(BK, `# Backup ${stamp}\n`+txt); }
+
+function isIsogram(w){ if(w.length!==5) return false; const u=w.toUpperCase(); if(!/^[A-Z]{5}$/.test(u)) return false; return new Set(u).size===5; }
+function buildSetFromBlock(txt){ return new Set((txt||'').split(/\r?\n/).map(s=>s.trim().toUpperCase()).filter(Boolean).filter(isIsogram)); }
+function anchorsAreCompatible(a,b){
+  if(!isIsogram(a)||!isIsogram(b)) return false;
+  a=a.toUpperCase(); b=b.toUpperCase();
+  if(new Set((a+b).split('')).size !== 10) return false;
+  for(let i=0; i<5; i++){ if(a[i]===b[i]) return false; }
+  return true;
+}
+
+/* Daily NY seed */
+function pickCompatiblePairDaily(seedStr){
+  let h = 0; for (let i=0;i<seedStr.length;i++) h = (h*31 + seedStr.charCodeAt(i)) >>> 0;
+  const list = DICT_DAILY, n = list.length;
+  let i = h % n;
+  for (let step=0; step < n; step++){
+    const a = list[(i + step) % n];
+    for (let j=1; j<=200 && j<n; j++){
+      const b = list[(i + step + j) % n];
+      if (anchorsAreCompatible(a,b)) return [a,b];
+    }
+  }
+  return ['CRANE','PLUMB'];
+}
+/* ======= FIXED ROTATION (2500-day list) =======
+   Paste your 2500 lines of pairs into ROT_RAW as:
+   WORD1|WORD2
+   one pair per line.
+*/
+const ROT_START = '2026-01-01';
+
+const ROT_RAW = `
+UNRID|WHACK
+ABLER|FUSTY
+FUTON|WRIED
+BRACK|MUSTY
+CHARD|NOBLE
+GRAVY|TUBES
+FLUMP|WRACK
+PLACK|WHING
+GUNKY|TRACE
+GLUME|NARKS
+GONAD|PIXEL
+MULCH|PIVOT
+CAPER|OINKS
+HACKS|OLDIE
+LINED|SHAFT
+GLAND|VIZOR
+FLOGS|VINET
+HAJIB|POETS
+BRAZE|STING
+MATED|WHURL
+TOMBS|WAIVE
+GOUTY|LACES
+BASIN|JOKER
+FINCH|ROPES
+IDENT|QUALM
+HYRAX|PULSE
+RHOMB|YACKS
+FLUNG|HEPAR
+PRIMO|SLUNG
+EPOXY|WHAUR
+SABER|TUNIC
+ADOBE|NYMPH
+COUPS|GYRED
+BRUNT|MIKES
+GOWKS|HAPLY
+TURFS|ZINEB
+FLIRT|MOCKS
+FIXER|MANGY
+BOUND|SATYR
+DEITY|VOLAR
+CALVE|PINGS
+JANKY|STRIP
+MODES|NARKY
+COPES|HILAR
+HUMPY|WIRED
+BLOAT|XERIC
+ALONE|DISHY
+DAIRY|GOWLS
+MARKS|VIXEN
+HYPOS|ULCER
+MIDGE|ROCKS
+BLUES|RADIX
+DITCH|GAMES
+BOTHY|MINDS
+MOWED|TUNIC
+DICOT|LUNGE
+CARGO|DITSY
+CHART|GLIDE
+GRIEF|UNLAW
+THROB|UNSAY
+DORMY|TAXES
+GUCKS|VIPER
+GNAWS|VOXEL
+GNARL|HYPOS
+PARCH|UNLIT
+BEARD|SHOWY
+GURLY|NOMAD
+DIRCA|PUNTS
+PUNCH|TREAD
+PLUCK|WAINS
+CURBS|WIGHT
+CYNER|HUMPS
+CADGY|LOVER
+CYNER|SOUTH
+FIVER|SADLY
+AROSE|NYMPH
+AGILE|COMPS
+HOTLY|VAXED
+ARGUE|YONIC
+DUPES|ZINKY
+GIVER|LOACH
+SPANK|TOYED
+GHOUL|WARPS
+FIORD|GENTS
+DICER|FLAMS
+FIXED|HARMS
+SLOTH|UNIFY
+ICKLE|JUMPS
+BLEAK|CUTIN
+DAISE|GLORY
+FRAUD|NOTES
+GROWL|NUKES
+COUPE|DRAFT
+BLUER|PANTO
+BALMY|SQUID
+ACTIN|LUBES
+BOARS|PLUNK
+JUKED|PINTO
+BLOND|CHAMP
+SHUCK|VINED
+FEATS|MUCKY
+BALDS|COUNT
+BUDGE|TRIOS
+HYDRO|LEAKS
+BLITZ|EPOCH
+AMUSE|NITRO
+QUIRE|SLANG
+PEALS|UNRIG
+FLING|HEAPS
+COMLY|IRADE
+ALBUM|FJORD
+GNASH|YODLE
+TWEAK|ZOMBI
+CHEWS|KRAUT
+BEAUX|LONGS
+AMONG|FIXER
+BLOKE|CAPUT
+HALES|TOXIN
+APING|TECHS
+LAWNS|PORGE
+GUNKY|PORES
+AZYMS|BIRTH
+DEBIT|FLUNG
+CAGED|LIMBS
+CORED|THING
+JUNKS|TWIGY
+BUGLE|PRISM
+RAPID|STOVE
+BERYL|SIGMA
+BROIL|MAZES
+COZIE|RUMBA
+ENACT|OPIUM
+PACKS|TOILE
+CORGI|LUBED
+HEPAR|KUDOS
+DUMPY|WORST
+SWORN|VATIC
+FADES|WHING
+FEUDS|WILGA
+BLEAT|CORDS
+QADIS|ROCKY
+DOBLA|GRUNT
+AGONY|EMITS
+PROUD|WALTY
+VOILE|YARNS
+CORNU|WAFTS
+SUING|VAMPY
+TERMS|UPLAY
+BANJO|FLIPS
+FUNDI|REALM
+AFTER|QUINS
+HAIKU|POSER
+DYNEL|TOXIC
+INBOX|SMEAR
+JOULE|MARSH
+FUDGE|STICK
+HORSY|WALTZ
+CLOMP|JUNKS
+HONEY|QUARK
+ETHIC|GYRON
+BURGH|SKATE
+PENAL|VOUCH
+GUSTY|HALON
+BUXOM|SHLEP
+BANJO|DRIPY
+FLINT|ROUGE
+NARKS|UTILE
+CLASP|NUDIE
+GRABS|OPIUM
+FUMET|PLAID
+HWYLS|MACON
+HYLIC|NORMS
+BROIL|HANCE
+FAKED|LYING
+FAITH|WORDS
+DEBTS|VINCA
+POKUS|TAMED
+BUXOM|VINYL
+DRIPY|FLOES
+LONGS|ZIBET
+BLOWN|CAKED
+HAFTS|VOMER
+RHINO|VALUE
+FROND|GAWKS
+INTER|MACOS
+IFTAR|UNBOX
+PALES|UNRID
+BLITZ|DEARS
+EMPTY|WINKS
+COVET|WHAUR
+FAKER|MOUSY
+GLAZE|QUBIT
+BUILD|GROVE
+BUXOM|GNASH
+ACORN|HIKED
+BLACK|FIRTH
+FLANK|MUTER
+SHOCK|WATER
+CRAWS|MINTY
+ADIEU|CORNS
+FIEND|UPLAY
+BRINY|OPTED
+HOVEL|JACKS
+DELAY|MIRTH
+GELID|SHORT
+TRUCK|WHOSE
+PACKS|REBID
+FOCAL|MUTED
+JUPES|WHACK
+SMOKE|TRULY
+FRATS|UNMIX
+CRIES|GOUTY
+GULFY|TICKS
+ICTAL|JOKES
+FIQUE|GANCH
+AMONG|SPIED
+COPED|JANKY
+FOYER|WIGHT
+POUCH|SMART
+SKIER|VODUN
+BLURT|WAXES
+CURDS|VITAE
+THUMB|YOGIC
+LAUGH|TONED
+LUNGE|PACKS
+SAVER|WITCH
+HORSY|PLICA
+JIBER|LAUGH
+ALBUM|HOITS
+RABID|WEFTS
+CALIF|POKED
+STORY|WAXEN
+YOKES|ZILCH
+CADET|LURKS
+POESY|TWANG
+CHUNK|STAID
+CRUSH|YOKEL
+FITLY|VODKA
+NOTCH|UVEAL
+LINKS|WARED
+FORAY|STICK
+DRAKE|HYPOS
+TACOS|WIMPY
+MOTEL|SNUCK
+BORIC|WANTS
+COUPE|SHINY
+DITSY|PALER
+BLAZY|MIXUP
+FLUKY|SMITE
+FROND|LACKS
+CLUNG|EXPAT
+GNOME|KAPUT
+AWFUL|TYPOS
+FRUIT|SAVOY
+POETS|UMIAK
+PHYLE|SOUND
+JANKY|WORST
+FEARS|HUMPY
+COUNT|GYRED
+BLIND|WAXER
+FREAK|VYING
+MAINS|VOUCH
+GAMER|SQUIZ
+BALES|YOGIN
+ORCAS|UNKED
+GAWKY|TRICE
+CYNER|WHITS
+GUACO|WRENS
+AZURE|FLOWN
+CHAOS|PIKED
+HOPES|UMBRA
+CHAOS|FILET
+INGOT|UAYEB
+CHOSE|DATUM
+FRITH|QUADS
+HAYED|SPOUT
+INPUT|SWARM
+BRACE|SPOUT
+KNARS|VOLTE
+FLECK|TOMBS
+LACKS|UNZIP
+BULKY|SWEPT
+BLINK|HAYER
+DOUCE|WHAPS
+CLASP|ROGUE
+DUALS|VENOM
+CHIEF|DROPS
+CLING|JABOT
+URATE|WOMYN
+DEVON|QUBIT
+BITES|HUMAN
+CONTE|JAUPS
+SNAKE|VIGOR
+BLAZY|WONKS
+BORIC|UMPTY
+HAZES|ROCKY
+FLUMP|VIXEN
+GIFTS|VOWED
+REHAB|ZLOTY
+CAGEY|VISOR
+AGONY|TURPS
+CENTS|GLYPH
+CARTE|FILMS
+ITEMS|POLKA
+CHAIS|TOYED
+GOWNS|PILCH
+DEFOG|PASTY
+TANKS|WIPER
+OINKS|THREW
+DWARF|UTILE
+QUOIN|WELDS
+SMACK|VIDEO
+BADGE|HOCKS
+CROAK|JIVES
+FLUTY|INDEX
+AGLOW|YEUKS
+GLOWS|TREAD
+HOCUS|MIXER
+DORTS|JANKY
+AMITY|DEBUG
+BANDS|FUMET
+GAWDY|MORSE
+CHASM|WIPED
+SCALD|UNZIP
+QUBIT|ROADS
+BRACE|STONY
+OGLER|WUMPH
+LEAKS|RUNTY
+GRACE|ZONKS
+LODGE|VATIC
+FOUND|HALVE
+NAPES|WIFTY
+CHURN|FLEXY
+UNBID|YOGHS
+BLITZ|HYDRA
+DETIN|GUCKS
+FOGEY|HILAR
+DORKY|WAMES
+DEMIT|HOWFS
+SHARK|VOUGE
+CYPRE|HOLMS
+GORSY|UNCAP
+SLANG|THUMP
+COVEN|GAUZY
+FINER|UPLAY
+LURID|WANTY
+CHURN|TAXED
+BANGS|UMPTY
+KUDOS|TRAIN
+GRITH|LAPSE
+SERIF|WHUMP
+FUDGE|LOANS
+CHOUX|PARTS
+OMITS|RANGE
+HULKY|PATIO
+MEANS|ZLOTY
+FOLKY|STAMP
+FLAXY|REBUT
+PURGE|SHINY
+GIRTH|UNLAW
+KRAUT|NOVEL
+CHORE|MADLY
+AMIGO|BENCH
+BLUER|FOAMY
+CADGY|MOTIF
+GILTS|YUKED
+VIBES|ZURNA
+BEAST|COUGH
+FLOCK|HEAVY
+CURED|MANGO
+HAEMS|PROUD
+BADLY|GRIFT
+UMBRE|YACHT
+MARCH|VINTS
+JOHNS|MULTI
+PAINT|YUKES
+CHOUX|GRAIL
+CLASP|DOWNY
+CRASH|TIMED
+FROST|UNICA
+POKES|UNFIX
+FRETS|UNJAM
+BLOKE|SUPRA
+ABODE|UNMIX
+VOTED|WHAPS
+EXACT|FLIPS
+DECRY|MALTS
+CONKS|FERIA
+DOWRY|QUASI
+FILCH|REMAP
+MONTH|SALVE
+DECOR|FLASH
+PLEAD|ZOMBI
+MAUVE|WRING
+BRIDE|FLANK
+GRAIN|WOMBY
+NITRO|WAGED
+BOILS|VAUNT
+COMES|GAWKY
+BROIL|UANGS
+GURLY|MOATS
+DEFOG|PILCH
+COWRY|TAXIS
+CABIN|GROUP
+BLAME|FRONT
+DIPSY|UNKET
+COMFY|TILDE
+BYRES|POINT
+AZURY|PINTS
+COWER|DUNGS
+DRIFT|LAKES
+BIJOU|SHANK
+DOERS|GAMUT
+LOFTY|MUCKS
+GRAVE|MINTS
+FLYER|HINTS
+FJORD|MUNCH
+GYRES|ZONDA
+DEWAX|JUNTO
+TRIMS|UHLAN
+NERDY|SCAMP
+MOCKS|TARED
+GYRED|HALTS
+FLOCK|GRAIN
+HEXAD|SPUNK
+ELBOW|SHINY
+BIRTH|VOUGE
+SPURT|VOGIE
+JURAL|PIVOT
+DAUBY|RITES
+BERTH|SCALP
+COMET|SWING
+GORPS|THUMB
+GAMIC|SHUNT
+AFTER|LICKS
+ACORN|HEMPY
+BASIL|FUMED
+TRACK|VIOLS
+MEALS|YOGIC
+FLAME|PRINT
+WRANG|YOUSE
+GUNKY|RELIC
+FUMED|GLARY
+HYENA|STOCK
+DEFIX|SCRAP
+NACHO|SWIPE
+CLOGS|NYMPH
+JUDGE|STAMP
+CEORL|JIMPS
+DRUNK|LATCH
+COMLY|UPEND
+DJATI|GYBES
+JOCKS|RHYME
+TRUMP|WELDS
+HARLS|UNKED
+CRUMP|TOWEL
+HEAVY|SQUIB
+CAGED|UNHIP
+FOAMS|GIRLY
+VOLTS|WHING
+SCOLD|UMPTY
+HAKIM|UNLED
+DIACT|LOUSE
+UNHAT|WIPED
+UNSAY|VOMIT
+BOING|QURSH
+ANODE|BURST
+IDLER|WONKY
+DRUNK|FITLY
+BLUNT|MIKED
+FROND|GULCH
+PAINT|ROVES
+DECOR|VISTA
+UNCAP|WHETS
+DINGS|TRUCK
+HAULM|TOXIN
+CUTIS|OMEGA
+FRONT|SHIED
+SAVOR|YIELD
+ABORT|INDUE
+CAVIL|TUXES
+THIRD|WOKEN
+HAFTS|IRONY
+GUYOT|NAIVE
+CAKES|THONG
+AMIGO|BLUES
+SULKY|VICED
+TULIP|WONGA
+HOPED|SWING
+DYNEL|GRUBS
+GRUMP|STANK
+JUNKS|WRAPT
+BIRTH|CAPON
+HUTIA|JERKY
+LEMON|YACKS
+CRAVE|SHOWY
+CAVES|THORN
+CLANK|GROSZ
+FLAME|GRITH
+SMELT|WHINY
+GLUED|RASPY
+NOSED|PUBIC
+QUIPS|TAMER
+BUXOM|SLANG
+SHAPE|UNTIL
+FROTH|SCAMP
+BEARD|QUINS
+AGLOW|HERBS
+EXULT|ZAMBO
+CLIPS|TROVE
+AURIC|HOLED
+MINOR|SKATE
+HEAVY|KNOBS
+EDICT|JAMBO
+FUJIS|WROTH
+JUNKY|SHALT
+BANDS|WUMPH
+CRAWL|HYOID
+FLUTY|XENIA
+FLUOR|JAPES
+IDEAS|TUMOR
+MEANS|THICK
+JIVED|SNOWY
+COMFY|LEAST
+GROSZ|WANED
+FORAY|WIDTH
+FINCH|VOLTE
+BUNCO|JIVED
+FLAXY|URITE
+ERGOT|SLUMP
+GELID|TOWNS
+BUCKO|MIRED
+FLUBS|HIVER
+NIGHT|SURLY
+LIVEN|MORAY
+DUPLY|REAMS
+DEVON|GYRUS
+QUILT|WADER
+EXACT|PUDGY
+COWLS|IRATE
+FIBER|SQUAM
+BOWLS|ZURNA
+DOILY|WHENS
+DJATI|WHEYS
+EXITS|ROWDY
+HAMIL|UNBED
+IMBUE|WARST
+LOADS|TYING
+MACED|OPING
+FIXES|HYDRO
+FILMS|HEADY
+POTED|WHANG
+FIERY|QUOTA
+CHIPS|QUART
+GRASP|WHILE
+FOAMS|THREW
+MOUSE|TRACK
+BONUS|HYPED
+BRING|YEUKS
+SWING|VELDT
+CRUDE|SAVOY
+RIVAL|SHUCK
+GOUTY|PAVER
+FILET|GOADS
+GUYOT|PEAKS
+AMIDE|FROST
+HAZES|INCUR
+TWIGY|VELDS
+TACKS|WINZE
+LAIRS|UMPTY
+JIVES|YOWZA
+AILED|POURS
+CHAIS|NEWLY
+CONKS|UTILE
+PHYLE|STUCK
+HEAPS|WORMY
+LIVER|QUAGS
+HAYED|NICKS
+BRUHS|GYOZA
+ABUNE|SPORT
+BOXED|CLAIM
+MOULT|PRICY
+HEMPY|IRONS
+SCORE|UINAL
+DUNGS|FLAME
+COMLY|DRUPE
+THUDS|VICAR
+GUANO|MEDIC
+GAZED|WISHT
+DEIGN|SHAFT
+CREDO|HUMAN
+BOXER|TIPSY
+ORBED|SIGMA
+DRABS|TOILE
+CLOAK|SQUIN
+BUCKO|SWAMP
+BUILD|PATSY
+JUBAS|ZOMER
+HYING|VELAR
+GRANT|IMPEL
+LEANT|PORKY
+ANGLO|YUKED
+MALTY|VINES
+HANCE|TRIMS
+BIJOU|HARPS
+AURIC|YELPS
+PLAIN|THOSE
+JARLS|MOVED
+CLONK|TIRES
+HABIT|QUEYS
+EXALT|SNUCK
+DORKY|WILTS
+DINGY|VALSE
+LAYUP|VISOR
+FELID|SUPRA
+HOURI|JANTY
+BADLY|PURGE
+RAGED|VINTS
+FOXES|PARCH
+MELON|YURTS
+ROBES|WHINY
+DURAL|TSINE
+EKING|HOSTA
+INPUT|MODES
+GRAVE|ZLOTY
+GIRLY|QUEST
+BONUS|FRITZ
+GAZED|YOLKS
+FILED|YOWZA
+DORKY|WINCE
+DRAMS|QUINT
+RHOMB|VIALS
+COZEY|QUINA
+MORAL|WHENS
+BANKS|RIFLE
+ENJOY|WHIPS
+TYPOS|ULNAD
+MOUND|QERIS
+WOLDS|ZINEB
+GIBUS|HEXAD
+FEATS|MOUND
+HYING|ROPED
+CHARE|PLUMB
+CURVE|GOWAN
+JUBAS|TOPER
+BLOAT|SUING
+MIXED|VAUNT
+CRANK|DUMPY
+CHURN|WADES
+FINES|UMPTY
+BARGE|SNOWY
+FILED|PROXY
+MONKS|QUITE
+BATON|SHUCK
+CHIME|WABUR
+DAUBY|LIKER
+VIZOR|WHATS
+CHUMP|FROWN
+RAPID|UNBOX
+HUTIA|VOWEL
+LOFTS|MINER
+FLAME|RUSTY
+PSYCH|TRIBE
+ACING|LORDS
+COMBS|LIKED
+BUNCO|TARED
+PLOTS|URGED
+HOUND|MAPLE
+CRONY|SQUAT
+BEGOT|VINAL
+BIGLY|MOUNT
+PINKY|SALVO
+IVORY|LEAPS
+DARES|PLUNK
+HUMAN|ISLET
+CAPER|TOUGH
+ULTRA|WONKY
+DIVOT|WEARS
+HOITS|UNJAM
+BLAZY|POUCH
+AWOKE|LUNCH
+FETID|GROWL
+BADGE|CHIRP
+DYNES|POLKA
+BLACK|SPINE
+BURNT|DECAY
+JUCOS|NAVEL
+PAILS|WRUNG
+SLURP|WHINY
+LORDS|MATCH
+ILEUM|SWORN
+BAYOU|VISNE
+BLEAK|DRUGS
+DUMPS|WHANG
+GRUBS|NICHE
+BIGOT|PUKED
+CADRE|GUNKY
+DRONE|SALTY
+LIGER|WHUMP
+DEPTH|GRIMY
+DOWEL|FRATS
+HAULS|ZINKE
+BIGHT|UVEAL
+CLOUT|GIRNS
+SWANK|YIRTH
+ROGUE|SHINY
+NIFTY|OMERS
+GAZED|ROILS
+ALOFT|ZYMIN
+DEARY|OPING
+MUCKY|SLAVE
+CAKED|ZINGS
+DIMLY|PRAWN
+FLAKY|WIGHT
+EXPAT|MUSIC
+PLIED|SCRUM
+PIGMY|QUOTH
+BIRTH|PANED
+FIXES|LAUGH
+JULEP|RINGS
+AMONG|QUEYS
+PILCH|TURSE
+GIVES|PHYLA
+CANER|WUMPH
+BOGIE|HURLS
+FOLKS|WINEY
+AVERS|MIGHT
+CRAMS|PIKED
+ROWED|SHUCK
+BULKY|MATER
+ENTRY|HACKS
+DECOR|ZYMIN
+PHASE|WRING
+BILGE|UNSAY
+PUDGY|SNACK
+GRIST|JOWLY
+PHONY|VAGUE
+GUIRO|SPACE
+COMBS|HANKY
+MOVES|RAPID
+SHOUT|VICAR
+DRAIN|SPOKE
+MIKES|WAGON
+GYBES|TRACK
+COZEY|SQUAD
+EVILS|FUBAR
+JIBER|SLANG
+COVID|PLYER
+IOTAS|RHUMB
+DIARY|PLEBS
+COMER|QUATS
+SPOKE|ZINGY
+BARGE|NOTUM
+FRITZ|WALES
+AMBLE|ZINGY
+NOVAS|PRICK
+CHOIR|WAGES
+BRAVE|SCION
+CROES|PILAW
+FORUM|GIANT
+CREAK|DUNGS
+FLOES|WUMPH
+VINCA|WOLDS
+HONDA|RIPES
+LEMON|SHARD
+BAREN|CLODS
+CAVIL|EMBUS
+SQUAM|TRIBE
+DAINT|YULES
+BANED|PICKS
+BUXOM|STEAD
+FLUID|PEARS
+FLUTY|MOWED
+COUGH|VIXEN
+HUMPY|WINCE
+OPIUM|WEARS
+INGOT|MURKY
+BUGLE|SPINY
+CRUMP|WOKEN
+JUICY|RAVED
+DORKY|PLANE
+EXULT|HAWKS
+RADIX|STONE
+FETOR|VINAL
+BUILD|PANGS
+CAPON|MUSER
+JIBER|MATCH
+HULKY|TONED
+LEAFS|THORN
+CONGA|DETUR
+FILED|SONAR
+DRANK|PSYCH
+DWARF|JUKES
+DINGO|PLATS
+ALOFT|UNRIP
+SCRUB|VYING
+MEANT|SQUIB
+CONTE|FLASH
+HOARD|STEIN
+BOWEL|QUART
+BRAVO|GENTS
+FLAKY|GIRDS
+BANDS|MIXER
+HEMPY|LORDS
+BOLAS|DEPTH
+BLEND|MORPH
+BOGIE|PATHS
+GUIDE|HORNS
+BULKY|FROSH
+MUSED|VOCAL
+BRITH|COPES
+CURDS|PILOT
+DERBY|VIOLS
+CHIMP|TENOR
+FLASK|GUYOT
+SLUMP|TWIGY
+ADOBE|GRITS
+AZYME|CLOGS
+CHARD|GYBES
+CROES|PANDY
+FOCUS|PANEL
+BLAND|TRUCE
+VYING|WARPS
+VICES|YAULD
+FUNDI|HASTY
+FLOWS|QUIRT
+FLUKE|SAHIB
+BASIN|CODEX
+COWLS|QUAKE
+JAGER|LIONS
+SHIFT|WORMY
+FLOGS|HAVEN
+EMPID|FORTH
+FROSH|UTILE
+ABOUT|RIPEN
+COUGH|PRIED
+HUMAN|ISLED
+DREGS|TACKY
+COMPS|EYING
+EXTRA|SLUMP
+FIRST|PLEON
+FORTE|MINKS
+BUCKO|MATER
+RAILS|UNKED
+COVID|UMBRE
+CORAL|ZINEB
+BOXER|JUNKS
+FUGAL|TIMES
+TECHS|VIGOR
+GIBER|JOUKS
+LAKHS|VODUN
+IDLER|MUSHY
+BASIN|HOPED
+EMBOG|TRIAL
+BRAWN|HULKS
+DOGMA|WHITE
+PATED|WONKY
+LUSTY|VIPER
+BUXOM|SWEPT
+FLICK|HYPER
+CAGEY|WRIST
+HUMAN|SPORT
+TRIPY|WELKS
+BROKE|DAMPS
+JONGS|QUICK
+BREAK|MYTHS
+PILCH|VOUGE
+SETUP|YOGIN
+BUNCH|WORDS
+BILGE|FJORD
+CURVY|PLATE
+DOPEY|GULCH
+BLAZY|SWIFT
+DUCAL|TRIOS
+ROPED|UNSAY
+FENDS|RIGHT
+STONY|WHUMP
+ANCHO|LUMPS
+DOILY|GAMUT
+DAUBY|FLESH
+DATUM|FOXES
+MENUS|PAYOR
+HUMPS|WAGER
+BRAZE|FILMY
+DRIVE|KNAPS
+GROVE|ZYMIN
+HADST|UNBOX
+FLUNG|SPEAR
+PROMS|YULAN
+GRAFT|SPICY
+COLES|GRIND
+LYRIC|UMPED
+CUTIN|PALED
+CRAFT|VIBES
+GRAND|SOLVE
+CHUMP|FLAWS
+SMOKY|VIXEN
+GRAZE|SWIFT
+AMINO|SULKY
+DAVEN|WISPY
+GRAFT|MUSHY
+CHAMP|JOIST
+HAZED|SLING
+BITER|GAWKY
+HIVER|STANK
+SPURN|TWIGY
+GORPS|UNFIT
+AGONY|FIQUE
+GULCH|ZYMIN
+DEFIX|WORMY
+FAMED|GLORY
+COPED|WHITS
+JAPED|NOTCH
+POEMS|UNICA
+PINKY|VALES
+HINDU|WREST
+PITHY|SCORE
+BOTHY|MANED
+BRAVE|FOIST
+DEBUT|MACOS
+PLAID|YUKES
+CODEX|GULPS
+WHELK|ZOMBI
+GUANO|STYLE
+BOARD|EMPTY
+FLIES|TOUCH
+ROVES|UMIAK
+GERAH|ZONKS
+LAMBS|TONED
+FAITS|MOWED
+HYRST|WINED
+CRONE|JUMPY
+MACRO|PLUSH
+DINKY|LEAPT
+CORNS|MAIZE
+PIQUE|STAND
+HAZED|UNITS
+FORTY|WHANG
+FISHY|TOWEL
+FIXER|SHUNT
+HOSEN|PRIVY
+GUEST|PLAID
+LOVER|WANTY
+RAGES|UNKID
+PANDS|ZORIL
+BURNT|POEMS
+FETCH|SNARL
+DINGY|LOAFS
+CAMEL|OPING
+PLANK|VOTED
+PACKS|WINDY
+POUND|ZAIRE
+SMIRK|ZLOTY
+OPTIC|RAGES
+FLUTY|HOXES
+FAILS|RUGBY
+SCION|THUMP
+MOUNT|ZAIRE
+MISTY|QUACK
+PARKS|UNBID
+HAJIB|POKED
+JUGAL|TEPID
+MONKS|ZIBET
+CARTE|YOGIS
+PAILS|QUOTE
+HOLTS|MAGIC
+DUCKS|JAPER
+CALMY|NIXES
+PUNKY|WILDS
+FIVER|YAUDS
+APING|THUMB
+MANGE|TYPOS
+ANKLE|SOFTY
+GRUMP|LANKY
+MARCH|VIEWS
+AMPLE|KNISH
+COPSE|KNARL
+HUNKS|LIVER
+EDUCT|ROYAL
+LAYUP|TOXIN
+WHORT|YAMEN
+CANES|HUMID
+JOKED|SYNTH
+NAIVE|STUCK
+FAVUS|WHELP
+FATED|RUBIN
+RABID|WHUPS
+DRONE|SULKY
+FIRES|HAPLY
+GLAZE|JUPON
+LURED|MISTY
+FAINT|MOPEY
+HEARS|UNZIP
+HEALS|ROUND
+IDEAL|NOTCH
+EMOJI|LACKS
+FERLY|JINGO
+BRING|STYME
+BARON|HUMPY
+UNAPT|VOGIE
+HOVER|NASTY
+DEIST|FROWN
+FIELD|TZARS
+DIVES|LONGA
+COATS|UMBRE
+BROTH|ZINKE
+BRINK|FALSE
+VOLTA|WINDY
+BOAST|JUICE
+JOYED|PUCKS
+HOYAS|REIGN
+GLUEY|WITCH
+COURT|YIELD
+BLENT|MOHRS
+FUGAL|SPIKE
+CLUNK|PRIDE
+BAILS|HOPED
+JONGS|UPLAY
+FONDU|LEGIT
+EXACT|RUGBY
+CEDAR|MOUSY
+FORCE|SQUAD
+CHOIR|UNLET
+CUMIN|PYROS
+FLUNG|HOVER
+CHARM|UNSEX
+DORMY|LATEX
+FUGAL|SKIER
+CETYL|MARSH
+JUGAL|TORCH
+BLAND|MOHRS
+BINGE|CULTS
+DRAGS|KNIVE
+BURNT|CAMEO
+CRAPE|HYOID
+VIAND|YLEMS
+EPOCH|SIGMA
+CAMEO|GLINT
+CRIBS|HAUTE
+DOUCE|RISKY
+HOXED|VYING
+GOWAN|TRIES
+LEMON|VICAR
+DUMPS|FIXER
+DITSY|VALUE
+MADLY|STOKE
+DROVE|SQUIT
+DELFT|ROMPS
+GLYPH|TAMES
+DOBRA|PYXIE
+TRAIN|UPBYE
+CAMPS|FIXED
+SULKY|TORCH
+HANGS|UMBER
+NURSE|THICK
+STRUM|VIEWY
+BISON|YACHT
+GOWLS|UNICA
+TOMBS|WHELK
+DANCY|FLOUT
+HEALS|POINT
+DINGS|WACKO
+WHUMP|YEARS
+CLOMP|ZINKY
+MODAL|WINCH
+DOURA|WICKY
+BRINY|HALTS
+FADES|ZYMIN
+GROWS|PILCH
+CHEWS|DUMPY
+FAVUS|TOYED
+FENDS|WHURL
+GAMIN|ROUTE
+LIMOS|PAWED
+BRUIT|GLAND
+JAWED|QUIPS
+ILEAC|PROMS
+GERAH|KNUBS
+FLYER|JUCOS
+RHOMB|VAPID
+CUBIT|ZEROS
+SNIFT|WORLD
+DUVET|FLANK
+BYLAW|NICKS
+JUPON|TRACK
+FROGS|TUNIC
+MALIS|PERCH
+FREMD|KINGS
+DAVEN|MICRO
+BRAVE|DUCKS
+KNOPS|UVEAL
+COINS|WAVED
+BURIN|SHADY
+DARBY|JINGO
+CLUNK|GAPED
+CLASP|ROUTE
+FICHU|YERKS
+BRUIN|VELDT
+ERUPT|SHIVA
+HOLED|SPICY
+LAMBS|ZINCY
+CORGI|PAUSE
+FLECK|SWORD
+BOARD|GENTS
+AGLOW|SYNCH
+GABLE|WROTH
+EXACT|PUSHY
+HEART|ICONS
+DEVOT|SLUNG
+GAPES|WHINY
+SOFTY|UNBAG
+BOINK|SCAMP
+HICKY|NEARS
+BOXES|CHANT
+BURIN|SPEAK
+MODEL|WRANG
+DETOX|FLUKY
+LUNGS|WHITY
+ALONG|BYRES
+GROVE|HINDU
+JOUAL|REBID
+PALED|TOWNS
+VOCAB|YELMS
+ACERB|FLUID
+FACED|LUSTY
+URIAL|VETCH
+PIERS|VOUCH
+DAHLS|TENOR
+DAVIT|GYRES
+LIKED|PANTY
+CHAMP|VIEWY
+QUARK|TWINS
+COVEY|SHAWL
+DOWER|PATCH
+PICKY|VOTED
+KNOPS|RITZY
+DRABS|FLITE
+COUNT|VALSE
+CLOWN|STAKE
+GRUMP|IDLES
+COMFY|REBID
+CAMEL|SOUTH
+FIXER|PUDGY
+DOYEN|SHALT
+CLAMS|DONUT
+CAMEO|LYING
+ACRID|FLUKY
+MAPLE|WINKS
+COINS|LURED
+CAUSE|GIMPY
+DRABS|FLUME
+HINGE|SCOUR
+ASKEW|DIMLY
+COMPS|THEIR
+MAGIC|PRUDE
+THUDS|ZIRAM
+GANEF|LYMPH
+AMBER|UNLIT
+CARVE|WITHY
+DICER|WALTY
+SWANK|VIGOR
+LYMPH|ZINCS
+CALMY|WHETS
+BEGUN|CHOIR
+DANCE|POUTY
+SQUAD|ZINKE
+JIHAD|WEFTS
+COZEY|TRAIN
+DIRGE|ZONKS
+SHOCK|UTERI
+CRUEL|GHOST
+CADET|HONKS
+CLASP|DETOX
+MOWER|SQUAD
+JUPON|READY
+FLUTE|GRIMY
+CALIF|HOUPE
+FACES|WONKY
+FATED|HWYLS
+KLUTZ|MIXES
+DOZEN|WILTS
+JASPE|QUOIN
+PROXY|SCENT
+BYLAW|JOINT
+HOLDS|UNFIT
+WEFTS|ZINGY
+BUSHY|GRAVE
+GNARL|JUICE
+OPING|YEARS
+MUSER|PLAID
+FUBSY|MOVER
+PRICK|STOVE
+MASON|WIFEY
+EIGHT|ROAMS
+GAPES|HULKY
+PANSY|TIMER
+TOPED|ULVAS
+SHIED|WAULK
+HERDS|JOWLY
+DEFIX|SWANK
+DEVOW|TRULY
+ALKYD|WISER
+ALIGN|ZEROS
+CUTIE|MORPH
+PLICA|ZOMER
+QUILT|SAVOR
+BELOW|DURAS
+VIZOR|WEANS
+PINOT|RAGED
+MALTS|UNPEG
+FORMS|QUINA
+REMIX|WHUPS
+BUILT|GONAD
+FERIA|KNOBS
+BLAZY|PIVOT
+SHORT|WALED
+COMFY|WAKER
+CLING|EXAMS
+ERGOT|WADIS
+GIVES|TUMOR
+GRIFT|WELCH
+GUSHY|KANJI
+SOUTH|WRANG
+MISTY|ROUGE
+QUICK|SHLEP
+FEUDS|PHONY
+BELOW|SAUCY
+FIEND|SPARK
+COXES|WINGY
+ADULT|PERKY
+MORAY|SWING
+NOMAD|SWIRL
+CHOWS|FELID
+LUBED|TRIPS
+CUBIT|SWORE
+ADORN|UPTIE
+CLOGS|TARED
+ROPED|UINAL
+SPRIG|WACKY
+PLAIN|REBUT
+CRAWL|HYMNS
+CRISP|MODAL
+INERT|WAULS
+PRUDE|SICKO
+BANKS|REFLY
+CHARD|SPOKE
+CLEFS|VODKA
+GLUEY|SMIRK
+FLEWS|JAMBO
+INFER|SMACK
+BAILE|DUCTS
+VODUN|ZIMBS
+FLEGM|NASTY
+HEADY|PRINT
+HIVER|PLATS
+TANKS|YIELD
+COMBS|TAPER
+SCARF|YOGIN
+BUXOM|HAETS
+FLUID|STRAW
+HOGAN|SPIKE
+CLOMP|KINDA
+MOUSY|THANK
+HYDRO|QUINT
+CZARS|FIELD
+ADMIX|YOLKS
+FORTH|SLICK
+BELCH|GROAN
+PETAL|QUODS
+CLUNK|FOYER
+BALDS|TRUCK
+GINKS|RAZED
+BOGIE|PLATS
+FLABS|OPTIC
+DROWN|KITES
+BRACK|SWEPT
+IMBED|PLANK
+BYRES|PLAIT
+GEARS|THINK
+QUOTE|VINAS
+FUSIL|OVARY
+PRUDE|YOGAS
+BUTEO|FAINS
+BLAZE|UNGOD
+FLESH|GROIN
+MEANY|ROCKS
+ACRID|MOUTH
+DEITY|FORMS
+BRINK|SOWED
+PAILS|YOURN
+BORIC|USAGE
+PAYED|SLOTH
+FRANK|GLOVE
+BELCH|SPRAY
+CANED|TRIOS
+KNITS|LAGER
+CHIME|RUGBY
+RAVED|ZINGY
+CHART|WOLDS
+EMBOG|THICK
+CURST|VOWEL
+ALONG|TUBES
+JERKY|TUNIC
+DUELS|FORTH
+HYLIC|NAPED
+CEORL|FAINT
+BOWLS|PYXIE
+BADGE|VIRUS
+CAPUT|LINES
+ELBOW|JURAT
+EBONY|FLICK
+CAROL|VEINY
+RANCH|YUKED
+ENVOY|WIDTH
+BEGUN|DRIPS
+DOILY|MEATS
+HEAVY|OWING
+CLODS|WINEY
+AGLOW|CURSE
+FOALS|ZIBET
+LURCH|WINED
+DEATH|RUINS
+FLUNG|PACER
+HODJA|INKER
+HUMPY|LITRE
+GULAR|WHINE
+FRITH|SOLVE
+MALTY|ROUGH
+BEDIM|SQUAT
+HAYED|PORUS
+RIFLE|YOGAS
+BLEAK|WINDS
+ICKER|TUBAL
+FLOCK|WINGY
+BURIN|FLAWS
+PROBE|QUAGS
+EKING|TOADS
+ABORT|WHING
+TIMED|YOUNG
+CROAK|GLUME
+DINOS|FLUMP
+FAITH|SPERM
+DISCO|FRENA
+CRABS|FUNDI
+DOCKS|UVEAL
+DYNES|LIGHT
+LOANS|VICED
+CHOUX|ELANS
+STOCK|WAVEY
+DRUNK|HOWLS
+MOTIF|SLADE
+FRUIT|NODES
+MULTI|YOKES
+MOWER|SPLAT
+ACHES|FLUNG
+HOMES|WILGA
+BIRCH|NOTES
+IDLES|QUARK
+GAVEL|UNKID
+CRAZY|DEIGN
+CODEX|SWANK
+GIVEN|POUTY
+UMPTY|VINED
+QUOTE|SWANK
+DRUGS|TOILE
+JIBER|SWATH
+ALONG|WHUPS
+FLOUT|GAWKS
+MONKS|YAULD
+DJATI|WHOLE
+MAGIC|VOLTS
+JABOT|SPIKY
+INEPT|WACKO
+GLANS|ZOMER
+GAWKY|MOHRS
+HONDA|MUSIC
+FIORD|UVEAS
+JOKES|WHIRL
+FLUOR|SATIN
+NAVEL|WIMPS
+LUGER|MINKS
+ANTIC|GLYPH
+GLUEY|SICKO
+PETAL|SHOCK
+JANKY|VELDT
+SQUAB|TREND
+MAGIC|ROVES
+BASIC|NERDY
+ROWDY|VIGAS
+SCRUB|WHELK
+DEIGN|MOUSY
+CALFS|UNMET
+BOGEY|DRUNK
+ALKYD|PIQUE
+ANGRY|PLUMB
+ERUPT|ZYMIN
+BRAND|TYKES
+DUTCH|WAZIR
+FAZED|SILTY
+BROTH|YUCAS
+DINKY|SHREW
+FRETS|VAKIL
+FLOWS|IDENT
+BUILT|YAPOK
+FRANC|YOKED
+EVICT|HUMPY
+DIPSY|HONER
+FUBAR|MOTEL
+RAVES|UNFIX
+SUITE|WHANG
+DANCE|HOLMS
+RUGBY|WALTZ
+LYING|VOTER
+FONDS|HEART
+DUKES|MANGO
+EBONY|GRIST
+CAVIL|FOURS
+BOXES|CRWTH
+ABLER|MOUND
+AVERT|CLOPS
+JIVEY|WALKS
+RAKED|UNTIL
+GOURD|INTEL
+BASIN|FLEGM
+DUMPY|GORES
+ANGEL|DUMPY
+GUCKS|VOTER
+GRANT|PLEBS
+CAKED|PIOUS
+CLUMP|TOWED
+ICTAL|PORKY
+CROFT|HULKY
+LEANT|SPIKY
+LEAKY|MOTIF
+KNOBS|VELUM
+BLENT|HORSY
+ASKEW|CROFT
+IVORY|LEAST
+CHIDE|LAMPS
+UNJAM|VIGOR
+ALOFT|DICEY
+CLIPS|KRAFT
+FLABS|OPING
+GLUER|WINDS
+CRAVE|UNZIP
+BLUNT|WHOSE
+OPSIN|REHAB
+DRAWL|PITCH
+DANLI|ROUGE
+BAILS|TOUGH
+FUGAL|SICKO
+NIFTY|POKUS
+FLAKY|OWING
+FLUMP|WAGON
+BLITZ|HAMES
+PHONY|SMEAR
+BLAZY|VIRTU
+VATIC|YULES
+JOINT|PAWED
+ADUST|BELOW
+CARVE|HWYLS
+GAMIC|OPENS
+FELTS|RHINO
+IRADE|JOWLS
+COXAE|SQUID
+CROFT|PUNKS
+CAPUT|RINSE
+BITER|FLOWN
+AFORE|PLUNK
+ADEPT|FOLKY
+LAYUP|NECKS
+FIRED|KNUBS
+CURVY|FLANS
+GIVEN|TACKY
+DUPLY|TOKES
+ACING|HOLMS
+CREAM|HULKY
+FILED|UNSAY
+HALVE|SQUIT
+LATER|SUCKY
+FITLY|WHARE
+FORTY|NAMES
+CELTS|MINOR
+IMBUE|ROYAL
+IDENT|SCALP
+MYTHS|VOILE
+PAGED|STORY
+SPEND|VOLTA
+DACHS|ORGUE
+CORED|HAMIL
+SLOTH|XENIC
+COPSE|WABUR
+EMPTY|VINAL
+BANDS|ROUGH
+CALFS|INKER
+BRASH|TOWEL
+GYROS|JIVED
+POKES|VAIRY
+ADOPT|HUNKS
+DORKY|MULCH
+LIMBS|PUNCH
+CZARS|NOBLE
+MUNCH|PIKES
+MINED|WACKS
+FROND|VALES
+HONDA|SPELT
+SOUPY|WHEAT
+BLUER|CAMPS
+VINYL|WAKED
+CROWD|SINGE
+CHILE|JUBAS
+DUTCH|VIPER
+RHEUM|WAIFS
+OUTED|PICKS
+FONDU|MALTS
+ANTSY|PUKED
+DOWER|TAILS
+DOPES|WABUR
+DRAFT|UMBOS
+CLINK|SABRE
+HORDE|LIANG
+DUNES|IMPLY
+PROMS|WHEAL
+CHEST|FUNDI
+LOFTY|MANIC
+LODGE|WIMPS
+CAMPS|DRIFT
+HULAS|PROBE
+SCOUR|WALTZ
+PAGED|THUMB
+DOCKS|LINER
+AVERT|BLIND
+DOETH|LANKY
+INBOX|MACER
+CONKS|WAVEY
+WAULS|ZONED
+GECKO|VITAL
+CHOUX|GABLE
+JUBES|VINCA
+DERBY|GULFS
+LATCH|NUDES
+TORCH|UPEND
+BALDY|FINES
+INTEL|MUSKY
+PACED|QINOT
+COVEY|FIGHT
+SMITH|UNBED
+FLINT|HAKES
+PORGY|ULVAS
+JOCKS|NAMED
+PAINS|WHELM
+DROVE|KNAPS
+VITEX|YAWNS
+AWFUL|MEDIC
+HOCKS|WAFER
+WHORL|ZINKY
+BALMY|TOWER
+AZURY|CODEX
+DRIVE|WANLY
+BEGIN|SWATH
+GULFY|MOVED
+AMONG|LIFER
+PILCH|UNARM
+BATCH|POSED
+FJORD|PUNKS
+SPUNK|TIRED
+BEGUN|DORMY
+CREDO|PINTS
+INBOX|TRULY
+ENACT|IDYLS
+TRUMP|WONGA
+FAIRS|WOUND
+DWALM|SPITE
+HIRED|ZLOTY
+BEAMY|GROIN
+GURLY|SMOCK
+CLONE|DIRKS
+GRAVY|NUDES
+CRAYS|UMBEL
+DEALT|WICKS
+FANCY|MISER
+JOWAR|QUINT
+PEARL|WITHY
+KNEAD|TOMBS
+BELAY|ZONKS
+BEGUN|FARMS
+MIKED|TOUGH
+COMFY|TRIPE
+BOXED|KNURL
+COPES|QUART
+GNASH|XYLEM
+KNUBS|OLDIE
+VOGUE|WINDY
+PRANK|TOWED
+FILET|RANCH
+MORAY|THUDS
+PLANK|TURFS
+FUBSY|GROPE
+COPED|WAINS
+METAL|PONDS
+ANGLE|HOWKS
+DOZEN|SHARP
+MACED|NORTH
+PERCH|UNMIX
+BELCH|VISON
+IKARY|SMOTE
+COVEN|IDYLS
+LORDS|WUMPH
+KLUTZ|VOWER
+GULCH|YEARN
+HEFTS|WRING
+HENTS|QUARL
+NUMBS|TAPIR
+NAPED|WIRLS
+HANGS|VIPER
+AGLOW|CURES
+HANDS|WILCO
+SWEAT|VOUCH
+CAPON|FIRED
+FLOWN|SAVED
+CRANK|JIVES
+ADLIB|CRYPT
+MALTY|ROUGE
+FAZED|GROWS
+VERST|ZOMBI
+DAMNS|TRIPE
+CHAIR|NODES
+EVILS|MONTH
+UNHAT|ZIMBS
+BUSHY|TWEAK
+CHILD|WAGON
+NYMPH|SQUIZ
+BOLTS|FRIED
+SERUM|VATIC
+LAYUP|SKIRT
+CLOUT|FANES
+BRIDE|JAUPS
+BONED|WICKY
+HOPED|TUNIC
+MUCKS|PAGED
+TACKS|WIPER
+CURST|ZINGY
+BOAST|ELFIN
+ALIGN|YOUSE
+ERGOT|LANDS
+ASCOT|WIZEN
+CHEMO|GURLY
+MILKY|SAVER
+ACERB|GHOUL
+MAKER|TIPSY
+VARIX|WOKEN
+DUKAT|JHILS
+MOCKS|QUARL
+SHAKE|TUNIC
+FLOWN|HAYER
+BELCH|FAINS
+BLUER|JOCKS
+CANED|SLURP
+RAZED|THUMB
+CHUNK|GLAZE
+RAGED|STOMP
+GRADE|SQUIB
+SABER|UNIFY
+BURST|ELAND
+AWFUL|MOHRS
+DICOT|HEPAR
+FIVER|MULCH
+CODEX|SURLY
+SHOWN|URALI
+BUCKO|RINSE
+ECLAT|HYMNS
+ADUST|WIMPY
+JURAL|ZONES
+BRACK|MIDGE
+HOAGY|TRIBE
+JOWAR|LINED
+JUGAL|VIBES
+CHOIR|MAZES
+BRINY|PASTE
+GAWKY|PITCH
+FANES|PLUCK
+FINAL|VOUCH
+RABID|SWUNG
+FLIPS|THROW
+LINED|OATHS
+FROCK|GAUZE
+BEAUX|SPRIG
+CABER|JUDGY
+BALES|DOWRY
+LURCH|WIPED
+FOLKY|MUSER
+DERMA|SLINK
+SPIEL|WRUNG
+FINDS|HULKY
+LOATH|RINGS
+ALKYD|SPORE
+HYPOS|TRIKE
+ALOFT|RIPES
+AZURY|SMILE
+COLTS|KNEAD
+FLAMS|GOUTY
+LUBED|PRAWN
+KNIVE|PLUMB
+DIACT|PROVE
+SHARP|TUNIC
+LEFTY|OPSIN
+EXACT|IDOLS
+LANDS|POKEY
+STUMP|WHEAL
+DONUT|WEALS
+MALTY|WEIRD
+SHIFT|UNBAG
+LACES|PRIMO
+DUTCH|FLEWS
+BIGLY|JAPED
+HUCKS|MOPED
+NIXED|SCRAM
+EPOCH|TIDAL
+STAMP|WHING
+CONGA|SLIDE
+CHILE|UNDAM
+TRICK|UNLAY
+JANES|VOMIT
+SHRED|UINAL
+HIVES|JANKY
+HAPLY|STUCK
+CLOMP|REBUT
+BOTCH|RAISE
+SHINY|ZEBRA
+COZEN|GRIFT
+PLUME|XYSTA
+LIMBO|RACES
+BOARD|MINCE
+DINKY|GRAZE
+MOTEL|QIYAS
+BACHE|DINGS
+FAINS|VOGUE
+ACTIN|BOWLS
+DENAR|SQUIB
+HASTE|LURID
+LENDS|WIMPY
+GULFY|VISTA
+QUOIN|WELKS
+CLAWS|EMBOG
+HOVER|PLUNK
+EPOXY|LAUGH
+DUCAL|FRISK
+HOVER|SKIMP
+CLOVE|MIDST
+PAWNS|VOMER
+ABEND|SOFTY
+AGENT|VOUCH
+PRIMO|UNLED
+BELCH|DRANK
+BOAST|LIKER
+GOUTS|RABID
+JAMBS|YODLE
+HARKS|MIXED
+ALONG|DUKES
+BIGOT|NUDES
+COUGH|PATSY
+AGLOW|FIERY
+HERDS|UNWIT
+AMIDE|WRONG
+LEMON|QUASI
+GORSY|UNLET
+MAYBE|UNWIT
+SIXTY|WOFUL
+FLIRT|UMPED
+MOUNT|VIBES
+BLAZY|GENIS
+SPRIG|TWEAK
+BUSHY|LOGIC
+AXION|STREP
+ROUND|WIFTY
+DRINK|SLEPT
+PIGMY|SNORT
+MALIS|YOUNG
+INBOX|ULTRA
+JACKS|NEWLY
+HOGAN|MISER
+FAZED|SKIMP
+CAVED|TRUMP
+CUBIT|SHAKE
+DITZY|PEALS
+FROCK|ILEUM
+RAFTS|UNZIP
+HOGAN|SPURT
+DIRCA|STUNG
+HERTZ|MAINS
+JUKED|WOMBY
+DRONE|PIGMY
+GYRED|QUIPS
+MIRES|TACKY
+HAWKS|LONER
+REACT|WHUPS
+BRAWN|FUGLE
+CALIF|DUETS
+MULCH|WAIFS
+HEIRS|MANGY
+HOXED|STRUM
+ENDOW|SQUIT
+RHYME|VINTS
+NICKS|VAGUE
+LYING|SHADE
+EDICT|PROMS
+HYPOS|MEDIA
+JUDGY|WHENS
+BLACK|MOPED
+CLEAT|UNRIG
+BRAVE|MIDST
+CUBIT|LAXER
+FADES|JOWLY
+DUETS|PLACK
+POSIT|YAWED
+BOGIE|SHARD
+LAMBS|UNRID
+ADUST|RHOMB
+BIDET|RASPY
+CURLY|SHINE
+POLES|VAUNT
+MORAY|ZIBET
+BRAZE|TWINS
+CHURN|SPIKE
+HEPAR|WOMYN
+DISCO|HYENA
+MUTED|SPARK
+FJORD|VESPA
+BADLY|WRONG
+BELAY|GRIND
+BLOWN|JASPE
+FOUNT|MACES
+CLOAK|WIRED
+FRAGS|OLDEN
+GUSTY|HAMIL
+EPOXY|WACKS
+EMONY|QUAIL
+DEBAR|MUSIC
+SHORT|VAPID
+CAROL|TYKES
+ROBED|SILTY
+BLAST|VODUN
+PORGE|SIXTY
+DEBUG|WIFTY
+PROVE|UNKID
+BIGOT|YULES
+CADGY|OVERT
+MUSHY|PLAIN
+FOUNT|IRADE
+COBRA|ZYMIN
+CUTIS|FOXED
+BRAVE|PINCH
+MANGO|TRIKE
+ILEUM|ROADS
+COPES|HYRAX
+DINKY|WROTE
+GLADS|VINER
+HERBY|JOCKS
+MILKY|WORSE
+UNMIX|ZETAS
+BICEP|HYRST
+STOCK|WIVED
+POINT|SAWER
+QUAKE|RIOTS
+HYOID|QUANT
+FELID|HOARY
+COXAL|TRUMP
+GRASP|HOTLY
+DIVOT|GEARS
+BOINK|WHARE
+AZYME|SLING
+ACMES|WHINY
+PIGMY|ULNAD
+TWEAK|UNIFY
+CAROL|UNITY
+FUMES|VOCAL
+HYLIC|SWORD
+LOUSY|WAKED
+SCRAP|ZYMIN
+HAWKS|VOMIT
+POINT|QUAKE
+JUMPS|REBID
+CHARD|PIQUE
+CLUMP|DRIVE
+FUMET|NODAL
+CAPON|SMILE
+HYRAX|OMENS
+PROXY|WINGS
+HAJIB|ZERKS
+CUBIT|HAPLY
+CLEAN|SHIRK
+CLUMP|VEINY
+CHORD|EQUIP
+BRACE|MOULT
+MIDGE|PRAWN
+CALIF|UNMET
+CHIMP|WANES
+PYROS|QUINT
+FEUDS|TYING
+BATHS|CURVE
+BELOW|FRITZ
+SCION|WARED
+KNARL|TUBES
+DECOY|RUMBA
+MIRES|WANTY
+PLUCK|WORDS
+JIRDS|YOWZA
+CHAMP|GOWKS
+DOBRA|MUCKY
+CODEX|SHIVA
+FLING|TOKER
+POTED|UNARY
+PANDY|ZEROS
+MINER|QUAKY
+BLURT|DOZEN
+GRIMY|PENAL
+DEVON|TUBAL
+LYRES|MIGHT
+LABOR|WEDGY
+DAHLS|WRONG
+BRINK|YOWLS
+QUIRK|TOPED
+GROKS|HANCE
+SQUIN|TEACH
+LUCID|WHANG
+BROWN|CALMY
+RUGBY|TILDE
+ADULT|CONKS
+WAIFS|YOKED
+MULED|YARNS
+CRASH|FIEND
+DUTCH|LOWER
+CLOPS|UNIFY
+CHIDE|WONKS
+GIRLY|JUBAS
+ARSON|EVICT
+CROWN|MAIZE
+DEISM|FLUKY
+CHURN|PIGMY
+LOATH|SINEW
+BOILS|EMPTY
+CUTIS|HOVER
+KNOTS|WHILE
+FLOUT|VIEWY
+BLANK|CRIED
+GUANO|TWICE
+DRONE|MIXUP
+FLUMP|ZINKY
+RUNTY|VALIS
+CABLE|FROWN
+HINTS|LAYER
+DIRGE|JOCKS
+BATHE|FLUKY
+HALON|SWIPE
+OVERT|PILCH
+DRAMS|LEFTY
+GUNKY|MIRED
+GENOA|SPLIT
+CLEAT|WIMPS
+MUCKS|TONAL
+BRING|CHAPS
+PROUD|WAIST
+ANGLO|PRICY
+JUDGY|KITES
+DUTCH|ROYAL
+BARGE|PONDS
+FRATS|OPIUM
+ALIEN|DROPS
+RINKS|VOCAB
+CROPS|DITZY
+JUNCO|WIGHT
+FICHU|JABOT
+BLITZ|MUSED
+NUMBS|TOWEL
+DOWER|LIGHT
+GUACO|TRIPY
+HOWLS|MUTED
+FORTH|LYING
+CATER|KNOWS
+CLUBS|DENAR
+CAGES|ZOMBI
+JABOT|WICKS
+FERIA|WOMYN
+GASPY|QUICK
+BARON|VLEYS
+FLOUT|WEIRS
+FROWN|VAMPS
+GLARE|HOCUS
+DIRCA|KNOBS
+CHANT|QUIRE
+CHORD|GUILT
+SQUAT|WIZEN
+TUBED|YAWNS
+QUAGS|ZINEB
+JONES|RAPID
+BATCH|FIXES
+BANJO|PICKS
+CLIPS|NAKED
+ACTIN|UPBYE
+LOVES|UNCIA
+BATCH|LIVEN
+CHIVE|WOLDS
+ADEPT|SHINY
+JOUKS|LINER
+PARTY|ZILCH
+CORDS|HAKIM
+DIACT|HYPER
+HEMPS|WALTY
+OVERT|YAWLS
+BLITZ|SNUCK
+BLOND|SHAME
+BRIEF|YACHT
+VAPID|YOLKS
+GUISE|NOMAD
+CHOMP|LUBES
+OWNED|SKIMP
+HASTE|UNBID
+BUXOM|THINE
+FUGAL|METRO
+LOANS|YUKED
+CUBIT|SHARE
+LOCHS|REBUT
+GNASH|LOWER
+BOARD|MINUS
+INDUE|SCALP
+MODEL|SQUIZ
+HYPOS|VEGAN
+IDOLS|WHACK
+GROWN|SPITE
+BACON|HIRED
+FIBER|MOULD
+FURLS|IDENT
+LYING|PACER
+GROUT|HAZEL
+ABLER|SHINY
+REACH|WINGY
+ABLED|PRONG
+DELAY|PINTS
+FATLY|GRUBS
+CHART|MIKED
+BATON|MERCY
+GUNKS|WEARY
+FUDGE|PIVOT
+CHOUX|GRIEF
+COAST|WINGY
+GRAZE|ITCHY
+AVERS|OPIUM
+DANIO|HELPS
+ANCHO|MELTS
+BUNTS|GRAZE
+BREAD|OPIUM
+HWYLS|PORED
+BRUNT|WILED
+CHUNK|IRADE
+DOILY|HAZER
+REFLY|WHACK
+FRAME|TONGS
+ROUTE|SLICK
+JOCKS|ULNAE
+HAZED|SQUIB
+DOWRY|LUBES
+HYOID|WALKS
+EYING|SHRUB
+DINOS|EMPTY
+PALET|QUICK
+JUMPY|WALKS
+PLUME|SWANK
+BIGHT|WADES
+AVOID|YERKS
+ABHOR|ICKLE
+THUDS|WRONG
+SYNCH|TAPIR
+CRAZE|GILTS
+COWED|SIXTY
+ITCHY|WAKED
+CADIE|NOTUM
+CAROB|TUNES
+FRUIT|HOXES
+FLUNK|WAXES
+DARCY|HOITS
+DIETS|FLOCK
+FRIES|HAPLY
+BANED|HICKY
+DIMER|JOWLS
+HICKY|PORED
+MUSHY|VAKIL
+JAMBO|QUEYS
+MAKER|SQUIZ
+FINES|THRUM
+HUTIA|WOMBS
+HERDS|PILAF
+STAND|ZOMER
+FIRES|MADLY
+GRAIL|MUCKS
+BRISK|UNJAM
+GONAD|WHILE
+FROTH|WAILS
+GISMO|YAULD
+BLINK|CARVE
+JUGAL|MIRTH
+GLIDE|SAVOY
+UNBED|WOLFS
+EPOXY|MINUS
+CETYL|SUPRA
+CAUSE|GRIFT
+CAVES|FROTH
+LADEN|WHIST
+MULCH|RAVES
+JUDGE|YARNS
+FORTY|QUIPS
+AZYMS|FINER
+KINDA|YLEMS
+ACERB|FUTON
+FLOWN|MACES
+CRONY|WAIFS
+LONER|MISTY
+VAPOR|WHENS
+DUCAT|GYRES
+AMITY|JUNKS
+FONDU|SWAMI
+FREMD|PAILS
+BEDIM|CARGO
+HYING|MATED
+VINCA|WHOLE
+LUMPS|TRACK
+SOBER|WIFTY
+PLUMS|TRIED
+DUPES|GYOZA
+JUMPS|TACKY
+GYROS|WELCH
+SPOUT|WHANG
+DOWRY|FICHU
+FACED|GUILT
+CHEST|DROWN
+PROXY|UNLIT
+RINKS|VOGUE
+URGES|WIFTY
+BEAMY|SHRUG
+GAWDY|SPIEL
+SLUMP|TRIED
+TALES|WHINY
+BRINE|STUMP
+PIKER|SHAWL
+BIGOT|PALMS
+SPOKE|VIRTU
+GNOME|HAIKU
+MOTIF|SALVE
+FLUNK|HEART
+COBRA|GUYED
+HYPES|UMBRA
+DICEY|JOUKS
+CADGY|EQUIP
+FORAY|TICKS
+AROSE|UNITY
+BRAVO|WIELD
+BIGLY|HACKS
+CRAWS|MOULD
+FLUTY|HONED
+CRUDE|FITLY
+BUNCO|VAPES
+HEARD|WINGS
+FILMY|PROVE
+SPIED|UNARY
+DAISE|FROWN
+CLOGS|DEARY
+HUMPS|RAZED
+MAXES|VOUCH
+GULFY|MACED
+FICHE|KNAPS
+HAVES|PORGY
+GROWL|SAVED
+DATER|HOCUS
+BRINK|COMES
+DARBY|FUMET
+LYMPH|WIRED
+HAZED|SNIFT
+DINER|MACHO
+DOLTS|KNIFE
+GILDS|TACKY
+BAYOU|SNIFT
+CREAM|DINOS
+LYING|RATES
+BIJOU|FERLY
+HADES|MILKY
+FROCK|WANTS
+GUSTO|PERKY
+COZES|VAKIL
+QUICK|VEALS
+HOTLY|PANGS
+GYBED|HORAS
+CRIMP|SALVO
+BUILD|CAGER
+GERMY|TWINS
+POLKA|WIVER
+KNARL|QUBIT
+HOKEY|STUNG
+UNCAP|WHOLE
+ADOPT|FIVES
+FLUMP|NARCO
+LODGE|WHAMS
+UNMET|WHACK
+CHIVE|FOLKY
+BLIMP|FACED
+GIRTH|MOVES
+BOINK|WALTY
+DYING|HOLTS
+MOANS|RITZY
+BLURT|PESKY
+FRETS|OXLIP
+SILKY|TREAD
+REBUS|YAPOK
+HOYAS|UNFIT
+EDUCT|ZINGS
+JANES|LIGHT
+DARKS|GLOVE
+DIVES|LURCH
+CHUMP|IKATS
+FIDGE|KAPUT
+CLINK|SAWED
+FLOWN|ZIMBS
+CARED|TULIP
+TOURS|YAWED
+FACED|JUMPS
+CAVED|PLOWS
+BOXES|QUAKY
+ALKYD|SWEPT
+BLOCK|UNRIG
+FRIES|QUANT
+RETCH|SWAMI
+VAIRE|YOUNG
+HOCUS|TAMED
+JUNKY|WEIRD
+IMAGE|STUNK
+COVIN|HEAPS
+HAPLY|MINDS
+LATCH|VIEWS
+POLKA|UNFIT
+NEIGH|WACKO
+FINER|JUDGY
+CLIMB|VANES
+CRUST|DOWEL
+BROTH|SILKY
+AMIDE|HYPOS
+FETCH|YULAN
+JOUKS|MAXED
+DYNEL|SAHIB
+DAUNT|WELSH
+AZYMS|DEVON
+SLURP|WINCH
+CRAGS|WHUMP
+LUCID|TROVE
+FRAGS|QUINT
+CAVIL|TEMPO
+HAZEL|KNITS
+REBUS|WACKO
+PERCH|SNAKY
+CREWS|JAUNT
+FRUIT|GLAND
+BLIND|HEAVY
+GAZED|HYLIC
+CHUNK|TERMS
+CEDAR|POKUS
+MILES|PUDGY
+CURES|FLOWN
+ORCIN|SAUTE
+BACHE|FONDS
+SPRAY|WILED
+DIAZO|HYPES
+WICKY|ZONED
+KNOWS|MURAL
+AMINO|SPECK
+CLIMB|USNEA
+UMBEL|WRIST
+POUCH|XYSTA
+CHORE|PLAIT
+CHORD|QUAIL
+SIGMA|UNLET
+BLINK|GAPER
+MOUNT|VLEIS
+CRAFT|YOKES
+COXAE|MUSTY
+VAILS|WRUNG
+HURLY|NAMED
+LIFER|MATCH
+FLICK|UMPTY
+LIKED|STAPH
+BERTH|DINGO
+EMIRS|GULFY
+COPED|STUNG
+BOING|STEAL
+BLADE|TWIGS
+DYERS|PLANK
+READS|ZYMIN
+HOUSE|VAPID
+JURAL|SHOWY
+MOLDY|TUBER
+BLANK|GROTS
+COWED|FLASK
+MURKY|SWINE
+JUGAL|VINTS
+CRITH|EPOXY
+DRAGS|ILEUM
+CAVIL|FUBSY
+DEPTH|LOAFS
+GLUED|STORY
+GUCKS|TREND
+IZOTE|PLUMS
+HERLS|POUTY
+CLASP|MOWED
+FIGHT|LOVER
+AMEND|PORTS
+CHOMP|SLADE
+BATON|SQUIZ
+LAYER|PONDS
+CHURN|DAVIT
+HALON|VIRUS
+VERSO|WHING
+BUCKO|PIXEL
+HAKIM|YOURN
+HOSED|QUACK
+HABIT|LENDS
+THUMP|WEIRD
+APING|CROES
+ACERB|UNLID
+ACUTE|JINGO
+AZYME|BUNCH
+DUSTY|MELON
+COBRA|HEFTS
+PEALS|TWIGY
+MIRTH|SNAKE
+CRAPE|FUNDI
+SKATE|VOUCH
+COMFY|JAKES
+THICK|UNJAM
+AWFUL|TROPE
+BLURT|CHEFS
+BANDS|MOTHY
+ALONG|DUSKY
+DYING|REAMS
+JOWLS|PITHY
+CULTS|HYDRO
+FLUSH|MIRED
+COBRA|SPITE
+CHAIN|MOLDY
+FLAXY|WREST
+FRAYS|UNKET
+FLINT|YOKED
+MERIT|NOVAS
+FILET|HOARD
+CRASH|ZINKY
+RASPY|VOWED
+FLUKE|ROACH
+TRUCE|YANKS
+DRAWN|POKUS
+NAIVE|WORTH
+GONAD|SHIRE
+DIACT|LUGER
+EDITS|VOUCH
+CHALK|QUEST
+BLUES|WORTH
+CREST|WOMAN
+GABLE|STONY
+ANGER|FITLY
+POUCH|TWIGS
+BOARS|UNHIT
+BADGE|VINOS
+LUMPS|ZINEB
+HOPED|VITAL
+TRIPY|WHANG
+LAYER|WINDS
+BOSUN|PLAIT
+DIVOT|GERAH
+DIMLY|KNOSP
+BRUSH|DJATI
+HYOID|PSALM
+ANGLO|REDUB
+WHARE|YOGIC
+FROST|LIVEN
+FEUDS|TRAWL
+BULKY|WHIRS
+ROUGH|TYPES
+PILAW|SHONE
+GEARS|WIMPY
+GRAND|HUMPS
+CREST|WIMPY
+MONTE|WICKY
+HOVER|IDYLS
+CRAZY|MIXED
+FREIT|LOACH
+MURAL|THICK
+APING|DUCTS
+DUSKY|FINER
+CANDY|TRIMS
+FAVUS|HEMPY
+FETUS|PRICY
+BUNCH|PLAYS
+SPRIG|YAULD
+BRUSH|FAKED
+MOULD|SWIPE
+SONAR|UPBYE
+BEGUN|FIRTH
+HELIX|QUAKY
+CRAWL|UNHIT
+CLAYS|REMIX
+CLANG|THIEF
+POUND|WHIST
+BURIN|FEATS
+HOARD|UNSEW
+AROSE|PUDGY
+LABOR|PITHY
+LUCID|WHORT
+BEGUN|TAXIS
+CAPES|JUNTO
+DEBUT|ZINCY
+HAPLY|REBID
+LEMUR|PONDS
+CHOWS|DAILY
+CHAPS|MIDGE
+MUSHY|WRAKE
+TOUCH|ZINGS
+CHARM|FLUKE
+LAIRE|SHOCK
+CLIMB|FORTH
+FLAMS|TYPED
+ITCHY|UNWED
+HADST|PRICY
+FILMY|HEPAR
+AIRED|FUSTY
+BRAVO|FISHY
+BRIDE|JOCKS
+LUNCH|MAKES
+GRADE|WUMPH
+HYLIC|TUNED
+DEMIT|VAGUS
+GHOUL|WINES
+ABEND|HILUS
+COULD|HARMS
+RIOTS|WAULK
+SHOCK|UNPEG
+FILMS|VOTER
+MOUND|PACKS
+LUMPY|SWORE
+GECKO|MYTHS
+DUMPY|FARES
+CHIVE|KNARS
+DEVOW|TANKS
+TILDE|WAGON
+FLUNK|HATER
+PLOWS|RAMEN
+GLENS|VAPID
+ACORN|HIPLY
+MALTY|ROPED
+POEMS|UHLAN
+ALOFT|UNZIP
+SHRUB|TOXIC
+DOCKS|GRAZE
+HIDER|SUCKY
+ESTOC|GRAND
+KINDS|LATER
+LYMPH|ORBIT
+DANCE|WRITS
+PUNCH|WEALS
+DUMPS|GLINT
+CUTIS|VODKA
+BUNCH|GERMS
+LUNGE|PICKS
+PEACH|VYING
+GROUP|VISED
+DANIO|HUCKS
+CLUNG|RAMPS
+DIMLY|WHORT
+GROVE|SNIFT
+AGENT|HYOID
+DEITY|SUMAC
+GYRED|SHACK
+CIGAR|MENUS
+HINDS|WREAK
+CLOSE|TWIGY
+KNISH|TROVE
+EMBUS|FLICK
+SPIEL|WHARF
+CHAIN|FUMES
+SUMAC|WOVEN
+DISHY|ROUGE
+FRONT|WAGED
+MOVIE|THANK
+LIKES|OVARY
+CROUP|IDGAH
+CURVY|NODAL
+TAXER|VINOS
+JUPON|WEDGY
+MINUS|WHELP
+MOVES|ULPAN
+PIGMY|STUNK
+SOLID|WAKER
+CALIF|GRUNT
+COMPS|WAFER
+GLINT|POKUS
+BRACT|DYNEL
+GRUMP|VOTED
+`;
+
+const ROT_LIST = ROT_RAW
+  .trim()
+  .split(/\r?\n/)
+  .map(line => line.split('|'));
+
+function rotDayIndexNY(){
+  // nycDateKey(new Date()) returns 'YYYY-MM-DD' in your build
+  const key = nycDateKey(new Date());
+  const dayMs   = Date.parse(key + 'T00:00:00Z');
+  const startMs = Date.parse(ROT_START + 'T00:00:00Z');
+  return Math.floor((dayMs - startMs) / 86400000);
+}
+
+function dateSeedAnchorsNYC(){
+  // 1) Try fixed rotation list
+  if (Array.isArray(ROT_LIST) && ROT_LIST.length){
+    const i = ((rotDayIndexNY() % ROT_LIST.length) + ROT_LIST.length) % ROT_LIST.length;
+    const pair = ROT_LIST[i] || [];
+    const a = (pair[0] || '').trim().toUpperCase();
+    const b = (pair[1] || '').trim().toUpperCase();
+
+    // Critical safety check: ONLY accept valid Perch anchors
+    if (anchorsAreCompatible(a, b)) return [a, b];
+  }
+
+  // 2) Fallback to your existing daily picker (never breaks the game)
+  return pickCompatiblePairDaily(nycDateKey(new Date()));
+}
+
+/* Random anchors (Plus/Custom helpers) */
+function randomAnchors(){
+  const list=[...WORDS], idx=Math.floor(Math.random()*list.length);
+  let i=idx; for(let step=0; step<list.length; step++){
+    const a=list[(i+step)%list.length];
+    for(let j=1;j<=200 && j<list.length;j++){
+      const b=list[(i+step+j)%list.length];
+      if(anchorsAreCompatible(a,b)) return [a,b];
+    }
+  }
+  return ['CRANE','PLUMB'];
+}
+
+/* Modes */
+const Mode = { TODAY:'today', PLUS:'plus', CUSTOM:'custom' };
+let pendingMode = Mode.TODAY;
+
+/* Words UI helpers */
+function totalInUse(){ return new Set([...buildSetFromBlock(DICT_RAW), ...getCustom()]).size; }
+function updateWordsStat(){ $("#wordsStat").textContent=`Total in use: ${totalInUse()}`; }
+function handleAddOne(){
+  const raw = ($("#singleWord").value||'').trim().toUpperCase();
+  if(raw.length!==5){ toast('Enter 5 letters (A–Z)'); return; }
+  if(!/^[A-Z]{5}$/.test(raw)){ toast('Use letters A–Z only'); return; }
+  if(!isIsogram(raw)){ toast('Isograms only (no repeats)'); return; }
+  if(buildSetFromBlock(DICT_RAW).has(raw)){ toast('Already in the list'); return; }
+  const res = addOneCustom(raw);
+  if(!res.ok){ toast('Could not add word'); return; }
+  $("#singleWord").value=''; updateWordsStat(); toast(`Added: ${raw}`);
+}
+
+/* Dev tools */
+function exportAdds(){ const txt = exportCustomText(); const blob = new Blob([txt||''], {type:'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='perch-my-added-words.txt'; a.click(); URL.revokeObjectURL(a.href); toast('Exported'); }
+function showImport(){ $("#importArea").style.display=''; $("#importText").value=''; }
+function hideImport(){ $("#importArea").style.display='none'; }
+function mergeFromTextarea(){
+  const lines = ($("#importText").value||'').split(/\r?\n/);
+  if(!lines.length){ hideImport(); return; }
+  const cur = getCustom();
+  lines.forEach(s=>{const w=s.trim().toUpperCase(); if(isIsogram(w)) cur.add(w);});
+  setCustomFromSet(cur); rebuildWORDS(); backupStamp(); updateWordsStat(); hideImport(); toast('Imported & merged');
+}
+function bakeDownload(){
+  const adds = exportCustomText();
+  const safe = (adds||'').replace(/`/g,'\\`');
+  const html = document.documentElement.outerHTML.replace(/Player Build 25w/g,'Player Build 25w (baked)').replace(/(\n<\/body>\n<\/html>\s*)$/,
+    `\n<!-- Baked words snapshot:\\n${safe.replace(/</g,'&lt;')}\\n-->\n</body>\n</html>\n`);
+  const blob = new Blob(['<!DOCTYPE html>\n'+html], {type:'text/html'});
+  const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='perch-player-baked.html'; a.click(); URL.revokeObjectURL(a.href);
+  toast('Baked player file downloaded');
+}
+
+/* Mode picker */
+function requestPremium(){ showOverlay('#upsellBackdrop'); }
+function applyMode(){
+  if(pendingMode===Mode.TODAY){
+    const [a,b]=dateSeedAnchorsNYC();
+    TOP_ANCHOR=a; BOTTOM_ANCHOR=b;
+    resetAll(true); setRow(1, TOP_ANCHOR); setRow(7, BOTTOM_ANCHOR);
+  }else if(pendingMode===Mode.PLUS){
+    if(!isPremiumUser){ if(!incPreviewAndMaybeLock()) return; }
+    const [a,b]=randomAnchors();
+    TOP_ANCHOR=a; BOTTOM_ANCHOR=b;
+    resetAll(true); setRow(1,a); setRow(7,b);
+  }else if(pendingMode===Mode.CUSTOM){
+    if(!isPremiumUser){ if(!incPreviewAndMaybeLock()) return; }
+    const t=($("#topWord").value||'').toUpperCase();
+    const b=($("#botWord").value||'').toUpperCase();
+    if(!(anchorsAreCompatible(t,b) && WORDS.has(t) && WORDS.has(b))){
+      toast('Anchors must be valid words, 10 unique letters total, and differ in every column'); return;
+    }
+    TOP_ANCHOR=t; BOTTOM_ANCHOR=b;
+    resetAll(true); setRow(1,t); setRow(7,b);
+  }
+  hideOverlay('#modeBackdrop');
+}
+function setPremium(on){
+  isPremiumUser = !!on;
+  localStorage.setItem(premKey, on ? '1':'0');
+  document.getElementById('premBadge').style.display = on ? '' : 'none';
+  document.getElementById('modePlus').classList.toggle('lock', !isPremiumUser);
+  document.getElementById('modeCustom').classList.toggle('lock', !isPremiumUser);
+  document.getElementById('customInputs').style.display = (on && pendingMode===Mode.CUSTOM) ? 'flex' : 'none';
+}
+function getPreviewUsed(){ return parseInt(localStorage.getItem(PREVIEW_KEY)||'0',10) || 0; }
+function incPreviewAndMaybeLock(){
+  const used = getPreviewUsed() + 1;
+  localStorage.setItem(PREVIEW_KEY, String(used));
+  const left = Math.max(0, PREVIEW_LIMIT - used);
+  if (used >= PREVIEW_LIMIT){
+    setPremium(false);
+    toast('Preview over — unlock Perch Premium to keep using this mode');
+    requestPremium();
+    return false;
+  } else {
+    toast(`${left} premium preview plays left`);
+    return true;
+  }
+}
+
+/* Validation & gameplay */
+function rowPoints(n){
+  const letters = lettersOfRow(n);
+  let base = 0;
+
+  // Score a letter only if its value is still visible on the keyboard
+  letters.forEach(ch => {
+    const valEl = document.querySelector(`.key[data-key="${ch.toUpperCase()}"] .val`);
+    if (!valEl) return;
+
+    const txt = (valEl.textContent || '').trim();
+    const val = parseInt(txt, 10);
+
+    if (!Number.isNaN(val)) {
+      base += val;
+    }
+  });
+
+  const mult = ROW_MULT[n] || 1;
+  return { base, mult, total: base * mult };
+}
+function push(letter){ if(G.done) return; const r=$(`.row[data-line="${currentLine}"]`); if(!r) return; const slots=[...r.querySelectorAll('.cell.play .letter')]; const i=slots.findIndex(s=>!s.textContent); if(i>=0) slots[i].textContent=letter; }
+function back(){ if(G.done) return; const r=$(`.row[data-line="${currentLine}"]`); if(!r) return; const slots=[...r.querySelectorAll('.cell.play .letter')]; for(let i=slots.length-1;i>=0;i--) if(slots[i].textContent){slots[i].textContent=''; return;} }
+function validateRow(n){
+  const cur=lettersOfRow(n);
+  if(cur.some(c=>!c)) return {ok:false, reason:'INCOMPLETE'};
+  for(let col=0; col<5; col++){
+    const seen = new Set();
+    const top = lettersOfRow(1)[col]; if(top) seen.add(top);
+    const bot = lettersOfRow(7)[col]; if(bot) seen.add(bot);
+    for(let row=2; row< n; row++){
+      const v=lettersOfRow(row)[col];
+      if(v){ if(seen.has(v)) return {ok:false, reason:'VERT_DUP', badCol:col}; seen.add(v); }
+    }
+    const vcur = cur[col];
+    if(seen.has(vcur)) return {ok:false, reason:'VERT_DUP', badCol:col};
+  }
+  const word=cur.join('');
+  if(!isIsogram(word)) return {ok:false, reason:'ROW_NOT_ISOGRAM', word};
+  if(!WORDS.has(word)) return {ok:false, reason:'NOT_WORD', word};
+  return {ok:true, word};
+}
+function recordRow(line, word, pts){ playedRows.push({line, word, base:pts.base, mult:pts.mult, total:pts.total}); }
+function consumeKeyValues(word){
+  const used=new Set(word.toUpperCase().split(''));
+  used.forEach(ch=>{
+    const valEl=document.querySelector(`.key[data-key="${ch}"] .val`);
+    if(valEl && valEl.textContent && !isNaN(parseInt(valEl.textContent,10))){ valEl.style.opacity='0'; setTimeout(()=>{ valEl.textContent=''; }, 450); }
+  });
+}
+function submitLine(){
+  if(G.done) return;
+  const n=currentLine; const res=validateRow(n);
+  if(!res.ok){
+    if(res.reason==='VERT_DUP' && res.badCol!=null){
+      const col=res.badCol; const rowsToFlash=[1, ...Array.from({length:n-1},(_,i)=>i+2), 7];
+      rowsToFlash.forEach(r=>{ const rowEl=$(`.row[data-line="${r}"]`); if(rowEl){ const cell=rowEl.children[col]; if(cell){ cell.classList.add('pulse-bad'); setTimeout(()=>cell.classList.remove('pulse-bad'),650); } }});
+      toast('Letter repeats in a column');
+    }else if(res.reason==='ROW_NOT_ISOGRAM'){
+      $$( `.row[data-line="${n}"] .cell.play`).forEach(c=>{c.classList.add('pulse-bad'); setTimeout(()=>c.classList.remove('pulse-bad'),650);}); toast('Only isograms allowed');
+    }else if(res.reason==='NOT_WORD'){
+     toast(`Not on word list: ${(res.word||'').toUpperCase()}`); 
+    }else{
+      $$( `.row[data-line="${n}"] .cell.play`).forEach(c=>{c.classList.add('pulse-bad'); setTimeout(()=>c.classList.remove('pulse-bad'),650);}); toast('Finish the row');
+    }
+    return;
+  }
+  const pts=rowPoints(n); const word=lettersOfRow(n).join('');
+  G.total=Math.max(0,G.total+pts.total); updScore();
+  applyAnchorProgress(lettersOfRow(n));
+  consumeKeyValues(word);
+  recordRow(n, word, pts);
+  if(n<6){ showRow(n+1); currentLine=n+1; }
+  else { 
+    G.done=true; pendingMode = Mode.TODAY; showSummary(true);
+  }
+}
+
+/* Summary (green/red final) */
+function computeUnusedPenalty(){ const used=new Set(); playedRows.forEach(r=>(r.word||'').toUpperCase().split('').forEach(ch=>used.add(ch))); let penalty=0; 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(ch=>{ if(!used.has(ch)) penalty+=(LETTER_PTS[ch]||0);}); return penalty; }
+function buildSummaryHTML(){
+  const total = G.total;
+  const pen   = computeUnusedPenalty();
+  const final = Math.max(0, total - pen);
+  const won   = final >= TARGET;
+
+  // Icon for win / loss in Final Score line
+  const outcomeIcon = won ? '✅' : '🚫';
+
+  let rows = '';
+  playedRows
+    .sort((a,b)=>a.line - b.line)
+    .forEach(r=>{
+      rows += `<tr><td>Row ${r.line}</td><td>${(r.word||'').toUpperCase()}</td><td>${r.base} × ${r.mult}</td><td>${r.total}</td></tr>`;
+    });
+
+  const bonusLine  = bonusEarned > 0 ? `<tr><td colspan="3">Bonus</td><td>+${bonusEarned}</td></tr>` : '';
+  const penaltyRow = `<tr><td colspan="3">Penalty (unused letters)</td><td>−${pen}</td></tr>`;
+
+  return `
+    <table>
+      <thead><tr><th>Line</th><th>Word</th><th>Calc</th><th>Points</th></tr></thead>
+      <tbody>
+        ${rows || '<tr><td colspan="4">No completed rows.</td></tr>'}
+        ${bonusLine}
+        ${penaltyRow}
+      </tbody>
+    </table>
+ <div class="total">
+  <span>Final Score</span>
+  <span class="${won ? 'summaryWin' : 'summaryX'}">
+    ${outcomeIcon} ${final}
+  </span>
+</div>
+  `;
+}
+function showSummary(fromGameOver){
+  // Build the summary table into the modal
+  $("#summaryBody").innerHTML = buildSummaryHTML();
+
+  // Score math (same logic as before)
+  const total = G.total;
+  const pen   = computeUnusedPenalty();
+  const final = Math.max(0, total - pen);
+  const pct   = Math.min(final, TARGET) / TARGET;
+  const won   = final >= TARGET;
+
+  // Safely build the header: try date + icon; fall back if anything fails
+ let headerText = `Game Summary`;
+  try {
+    const dateLabel   = nycPrettyDate();      // uses the helper near the NY toast
+    const victoryIcon = won ? "✓" : "✗";
+    headerText =
+`Game Summary ${victoryIcon} — ${dateLabel}`;
+  } catch (e) {
+    // If nycPrettyDate is missing or broken, we still show a header
+    headerText = `Game Summary – ${VERSION_TAG}`;
+  }
+  $("#summaryTitle").textContent = headerText;
+  // Also mark the outcome next to the Final Score number
+  const finalScoreStrong = document.querySelector('#summaryBody .total strong');
+  if (finalScoreStrong) {
+    finalScoreStrong.textContent = `${final} ${won ? "✓" : "✗"}`;
+  }
+
+  // Show the modal
+  showOverlay('#summaryBackdrop');
+
+  // Progress bar and HUD score
+ // Progress bar freezes at final; hide live HUD score during Summary
+$("#scoreBar").style.setProperty('--fill', pct);
+
+const sc = document.getElementById("scoreCurrent");
+if (sc) sc.style.display = "none";
+
+  // Stats (unchanged behavior: store final score + win/loss)
+  stampStats(final, won);
+}
+
+/* Share text */
+function shareText(){
+  const total=G.total, pen=computeUnusedPenalty(), final=Math.max(0,total-pen);
+  const lines=[];
+  lines.push(`Perch — ${VERSION_TAG}`);
+  lines.push(`Score: ${final} (target ${TARGET})`);
+  lines.push('');
+  playedRows.sort((a,b)=>a.line-b.line).forEach(r=>{
+    const multTag = r.mult>1 ? ` x${r.mult}` : '';
+    lines.push(`Row ${r.line}: ${(r.word||'').toUpperCase()} (${r.total}${multTag})`);
+  });
+  if(bonusEarned>0) lines.push(`Bonus: +${bonusEarned}`);
+  lines.push(`Penalty (unused letters): -${pen}`);
+  const txt=lines.join('\n');
+  if(navigator.share){
+    navigator.share({text:txt}).catch(()=>{ tryCopy(txt); });
+  }else{
+    tryCopy(txt);
+  }
+}
+function tryCopy(txt){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(()=>toast('Summary copied to clipboard'),()=>fallbackPrompt(txt));
+  }else fallbackPrompt(txt);
+}
+function fallbackPrompt(txt){
+  const ok=window.prompt('Copy this summary:',txt);
+  if(ok!=null) toast('Copy from the text box');
+}
+
+/* Reset */
+function resetAll(keepAnchors){
+  G.total=0; G.bonus=0; G.bonusMax=10; G.done=false; bonusEarned=0;
+ G._bonusPaid = false;
+G._line2BonusPaid = false; 
+  // Restore HUD score + WINS! for the next game
+const sc = document.getElementById("scoreCurrent");
+if (sc) sc.style.display = "inline-block";
+
+const wh = document.getElementById("winsHint");
+if (wh){
+  wh.style.display = "";
+  wh.classList.remove("off");
+
+  // Re-run the fade-out timer every new game
+  clearTimeout(wh._t);
+  wh._t = setTimeout(() => {
+    wh.classList.add("off");
+  }, 6000);
+}
+  playedRows.length=0; foundTop.clear(); foundBot.clear(); currentLine=2;
+  updScore(); updBonus();
+  for(let r=2;r<=6;r++){ const row=$(`.row[data-line="${r}"]`); if(row){ row.style.display = r===2 ? '' : 'none'; [...row.querySelectorAll('.letter')].forEach(el=>el.textContent=''); } }
+  $$('#row1 .letter, #row7 .letter').forEach(el=>el.classList.remove('anchor-found'));
+  if(keepAnchors){
+    setRow(1,TOP_ANCHOR); setRow(7,BOTTOM_ANCHOR);
+  }else{
+    TOP_ANCHOR='CRANE'; BOTTOM_ANCHOR='PLUMB'; setRow(1,TOP_ANCHOR); setRow(7,BOTTOM_ANCHOR);
+  }
+  $$('.key .val').forEach(v=>{
+    const key = v.parentElement?.dataset?.key || '';
+    if (/^[A-Z]$/.test(key)) v.textContent = LETTER_PTS[key] ?? '';
+    v.style.opacity='1';
+  });
+}
+
+/* Stats (minimal shell) */
+function showStats(){
+  const stats = readStats();
+  const el = document.querySelector('.stats');
+  if(!el) return;
+  const totalGames = stats.totalGames||0;
+  const wins       = stats.wins||0;
+  const streak     = stats.streak||0;
+  const best       = stats.best||0;
+  const hist       = stats.hist||[];
+  const loss       = totalGames - wins;
+  const bars = hist.slice(-20).map((v,i)=>{
+    const cls = v>=TARGET ? 'bar win' : 'bar loss';
+    return `<div class="${cls}${i===hist.length-1?' current':''}" style="height:${8+Math.min(64,Math.max(4,v/4))}px"></div>`;
+  }).join('');
+  el.innerHTML = `
+    <h3>My Stats</h3>
+    <div class="stats-grid">
+      <div class="tile"><h4>Games Played</h4><div class="val">${totalGames}</div></div>
+      <div class="tile"><h4>Wins</h4><div class="val">${wins}</div></div>
+      <div class="tile"><h4>Current Streak</h4><div class="val">${streak}</div></div>
+      <div class="tile"><h4>Best Score</h4><div class="val">${best}</div></div>
+    </div>
+    <div class="spark-wrap">
+      <div class="muted">Last games (target ${TARGET})</div>
+      <div class="spark">${bars||'<span class="muted">No games yet.</span>'}</div>
+      <div class="spark-x">Newer →</div>
+    </div>
+    <div class="actions">
+      <button class="btn" id="resetStatsBtn">Reset Stats</button>
+      <button class="btn" id="statsCloseBtn">Close</button>
+    </div>
+  `;
+  bindTap(document.getElementById('statsCloseBtn'), ()=>hideOverlay('#statsBackdrop'));
+  bindTap(document.getElementById('resetStatsBtn'), ()=>{
+    if(confirm('Reset all your Perch stats?')){
+      writeStats({}); toast('Stats reset'); hideOverlay('#statsBackdrop');
+    }
+  });
+  showOverlay('#statsBackdrop');
+}
+
+/* Hook stats into game end */
+(function patchStatsFinish(){
+  const origShowSummary = showSummary;
+  window.showSummary = function(fromGameOver){
+    if(fromGameOver){
+      const total=G.total, pen=computeUnusedPenalty(), final=Math.max(0,total-pen), won=final>=TARGET;
+           // Colorize the main score at game end:
+// Colorize the main score at game end:
+// green if win, red if not
+const scoreEl = document.querySelector(
+  "#scoreTop, #score, #scoreMain, .score, .scoreDisplay, .mainScore"
+);
+
+if (scoreEl) {
+  scoreEl.style.setProperty("color", won ? "#4EE266" : "#E3444A", "important");
+}
+      
+      const stats = readStats();
+      stats.totalGames = (stats.totalGames||0)+1;
+      stats.wins       = (stats.wins||0)+(won?1:0);
+      stats.streak     = won ? (stats.streak||0)+1 : 0;
+      stats.best       = Math.max(stats.best||0, final);
+      stats.hist       = (stats.hist||[]); stats.hist.push(final); if(stats.hist.length>200) stats.hist.shift();
+      writeStats(stats);
+    }
+    origShowSummary(fromGameOver);
+  };
+})();
+
+/* Stats button */
+bindTap(document.getElementById('statsBtn'), showStats);
+
+/* Words dev tools bindings */
+bindTap(document.getElementById('exportBtn'), exportAdds);
+bindTap(document.getElementById('importBtn'), showImport);
+bindTap(document.getElementById('bakeBtn'), bakeDownload);
+bindTap(document.getElementById('importApply'), mergeFromTextarea);
+bindTap(document.getElementById('importCancel'), hideImport);
+
+/* Initialize words stat */
+// Auto-apply today's daily anchors on first load
+(function autoDailyOnBoot(){
+  const [a0, b0] = dateSeedAnchorsNYC();
+  TOP_ANCHOR = a0;
+  BOTTOM_ANCHOR = b0;
+  resetAll(true);  // rebuild board with these anchors
+})();
+updateWordsStat();
+ /* ================================
+   LINE 2 BONUS: +10 BONUS!
+   Awards +10 once per game when the
+   first playable row (row 2) uses
+   ONLY letters from the two anchors.
+================================== */
+
+let line2BonusAwarded = false;
+
+// Reset bonus on new game
+if (typeof resetAll === "function") {
+  const _resetAll = resetAll;
+  resetAll = function () {
+    line2BonusAwarded = false;
+    return _resetAll.apply(this, arguments);
+  };
+}
+
+// Hook into setRow (used for both anchors and player rows)
+if (typeof setRow === "function") {
+  const _setRow = setRow;
+
+  setRow = function (rowNum, word) {
+    const result = _setRow.apply(this, arguments);
+
+    try {
+      // Only row 2, only once
+      if (!line2BonusAwarded && rowNum === 2 && typeof word === "string" && word.length === 5) {
+        const anchors = (TOP_ANCHOR + BOTTOM_ANCHOR).toLowerCase();
+        const anchorSet = new Set(anchors.split(""));
+        const w = word.toLowerCase();
+
+        // All 5 letters must come from anchor pool
+        if ([...w].every(ch => anchorSet.has(ch))) {
+          bonusEarned += 10;
+          toast("+10 BONUS!");
+          line2BonusAwarded = true;
+        }
+      }
+    } catch (e) {
+      // silent fail (safety)
+    }
+
+    return result;
+  };
+}
+</script>
+</body>
+</html>
+    <script  src="./script.js"></script>
+
+  </body>
+  
+</html>
